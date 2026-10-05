@@ -1,0 +1,7 @@
+{
+  "nombre": "Wiki",
+  "descripcion": "Base de conocimiento del equipo: páginas en Markdown, versiones, wikilinks e importación desde Obsidian.",
+  "icono": "📚",
+  "estado": "activa",
+  "schema": "wiki"
+}

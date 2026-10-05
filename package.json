@@ -1,0 +1,26 @@
+{
+  "name": "tu-broki-apps",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Herramientas internas de TuBroki: un launcher, un backend compartido y una app por carpeta (apps/<slug>).",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:static": "node scripts/build.mjs --skip-vite",
+    "build:roadmap": "npm run build --prefix apps/roadmap/frontend",
+    "build:diagramas": "npm run build --prefix apps/diagramas/frontend",
+    "dev": "node scripts/dev.mjs",
+    "smoke:wiki": "node scripts/smoke-wiki.mjs",
+    "seed:wiki": "node scripts/seed-wiki-ejemplos.mjs",
+    "seed:wiki-docs": "node scripts/seed-wiki-documentos.mjs",
+    "dev:roadmap": "npm run dev --prefix apps/roadmap/frontend",
+    "dev:diagramas": "npm run dev --prefix apps/diagramas/frontend",
+    "test": "node --test \"tests/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "postgres": "^3.4.5"
+  }
+}

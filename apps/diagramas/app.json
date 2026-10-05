@@ -1,0 +1,7 @@
+{
+  "nombre": "Diagramas",
+  "descripcion": "Diagramas de carriles del equipo: guárdalos, agrúpalos y etiquétalos. JSON listo para IA.",
+  "icono": "📐",
+  "estado": "activa",
+  "schema": "diagramas"
+}

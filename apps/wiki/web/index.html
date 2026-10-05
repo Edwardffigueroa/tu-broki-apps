@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>TuBroki · Wiki</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/wiki/wiki.css">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" defer></script>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="home-link" href="/" title="Volver al launcher" aria-label="Inicio">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <h1>Wiki</h1>
+      <span class="tag">TuBroki</span>
+    </div>
+  </a>
+  <button class="btn btn-sm btn-ghost" id="btn-toggle-side" title="Árbol">☰</button>
+  <div class="crumbs" id="crumbs"><span>Elige una página o crea una nueva</span></div>
+  <div class="topbar-actions">
+    <span class="save-ind" id="save-ind">Listo</span>
+    <button class="search-trigger" id="btn-buscar" title="Buscar en la wiki (Ctrl/Cmd + K)">
+      <span class="search-trigger-icon" aria-hidden="true">⌕</span>
+      <span class="search-trigger-label">Buscar en la wiki…</span>
+      <kbd class="search-trigger-kbd">⌘K</kbd>
+    </button>
+    <button class="btn btn-sm" id="btn-import">Importar</button>
+    <button class="btn btn-sm" id="btn-export">Exportar</button>
+    <button class="btn btn-sm btn-primary" id="btn-guardar" title="Ctrl/Cmd + S">Guardar</button>
+    <button class="btn btn-sm btn-ghost" id="btn-toggle-panel" title="Panel">◫</button>
+  </div>
+</header>
+
+<div class="banner" id="banner" role="status"></div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar">
+    <div class="side-head">
+      <h2>Páginas</h2>
+      <button class="btn btn-sm" id="btn-nueva" title="Nueva página">＋</button>
+      <button class="btn btn-sm" id="btn-sub" title="Subpágina">↳</button>
+      <button class="btn btn-sm" id="btn-subir-doc" title="Subir documento (PDF, HTML, imagen)">📎</button>
+      <button class="btn btn-sm btn-ghost" id="btn-papelera" title="Papelera">🗑</button>
+    </div>
+    <div class="side-body" id="tree"></div>
+  </aside>
+  <div
+    class="sidebar-resizer"
+    id="sidebar-resizer"
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="Redimensionar panel de páginas"
+    tabindex="0"
+  ></div>
+
+  <main class="main">
+    <div class="empty" id="editor-empty">
+      <h2>Tu base de conocimiento</h2>
+      <p>Escribe en Markdown, guarda versiones cuando quieras y enlaza páginas con <code>[[doble corchete]]</code>. Puedes importar un vault de Obsidian en ZIP o subir PDF, HTML e imágenes como documentos del árbol.</p>
+      <div class="actions">
+        <button class="btn btn-primary" id="btn-crear-primera">Crear primera página</button>
+        <button class="btn" id="btn-importar-vacio">Importar ZIP de Obsidian</button>
+      </div>
+    </div>
+
+    <div class="editor-wrap" id="editor-main" style="display:none">
+      <input class="title-input" id="page-title" placeholder="Título de la página" autocomplete="off">
+      <div class="meta-line" id="meta-line"></div>
+      <div class="editor-toolbar" id="toolbar-page">
+        <button class="btn btn-sm btn-primary" id="btn-mode-edit">Markdown</button>
+        <button class="btn btn-sm" id="btn-mode-preview">Vista previa</button>
+        <button class="btn btn-sm" id="btn-insertar-imagen" title="Subir e insertar imagen en el Markdown">Imagen</button>
+        <button class="btn btn-sm" id="btn-descargar-md" title="Descargar esta página como .md">Descargar</button>
+        <button class="btn btn-sm btn-ghost" id="btn-descartar">Descartar borrador</button>
+        <button class="btn btn-sm btn-danger" id="btn-eliminar">Papelera</button>
+      </div>
+      <div class="editor-toolbar" id="toolbar-file" style="display:none">
+        <button class="btn btn-sm" id="btn-descargar-doc">Descargar</button>
+        <button class="btn btn-sm" id="btn-reemplazar-doc">Reemplazar archivo</button>
+        <button class="btn btn-sm btn-danger" id="btn-eliminar-doc">Papelera</button>
+      </div>
+      <div class="editor-pane" id="pane-page">
+        <textarea id="md-input" spellcheck="true" placeholder="Escribe en Markdown… Usa [[ para enlazar páginas. Pega o arrastra una imagen para adjuntarla."></textarea>
+        <div id="md-preview" class="md-preview" aria-live="polite"></div>
+      </div>
+      <div class="doc-viewer" id="pane-file" style="display:none">
+        <div class="doc-stage" id="doc-stage"></div>
+        <label class="doc-notes-label" for="doc-notes">Notas</label>
+        <textarea id="doc-notes" class="doc-notes" rows="3" placeholder="Nota corta sobre este documento (opcional)…"></textarea>
+        <button class="btn btn-sm btn-primary" id="btn-guardar-nota" style="align-self:flex-start;margin-top:8px">Guardar nota</button>
+      </div>
+    </div>
+  </main>
+
+  <aside class="panel" id="panel">
+    <div class="panel-tabs">
+      <button class="panel-tab active" data-panel="historial">Historial</button>
+      <button class="panel-tab" data-panel="backlinks">Backlinks</button>
+    </div>
+    <div class="panel-body" id="panel-body"></div>
+  </aside>
+</div>
+
+<input type="file" id="file-import" accept=".zip,application/zip" hidden>
+<input type="file" id="file-imagen" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf" hidden>
+<input type="file" id="file-documento" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/html,.html,.htm" hidden>
+<input type="file" id="file-reemplazar" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/html,.html,.htm" hidden>
+
+<div class="img-lightbox" id="img-lightbox" hidden>
+  <button type="button" class="img-lightbox-close" id="img-lightbox-close" aria-label="Cerrar">×</button>
+  <img id="img-lightbox-img" alt="">
+  <div class="img-lightbox-bar">
+    <p class="img-lightbox-caption" id="img-lightbox-caption"></p>
+    <button type="button" class="btn btn-sm" id="img-lightbox-download">Descargar</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="modal-bg" role="dialog" aria-modal="true">
+  <div class="modal">
+    <h3 id="modal-title">Modal</h3>
+    <div id="modal-body"></div>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<script type="module" src="/wiki/js/app.js"></script>
+</body>
+</html>

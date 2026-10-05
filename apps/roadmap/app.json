@@ -1,0 +1,7 @@
+{
+  "nombre": "Roadmap",
+  "descripcion": "Tareas, cronograma y kanban del equipo. Tres vistas sobre los mismos datos, con subtareas e hitos.",
+  "icono": "🗺️",
+  "estado": "activa",
+  "schema": "roadmap"
+}

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>TuBroki · Apps internas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F8FAFC;--surface:#FFFFFF;--border:#E2E8F0;--border-soft:#F1F5F9;
+  --ink:#0F172A;--ink-soft:#64748B;--ink-faint:#94A3B8;
+  --brand:#4338CA;--brand-600:#4F46E5;--brand-500:#6366F1;--brand-soft:#EEF2FF;--brand-border:#E0E7FF;
+  --green:#10B981;--green-soft:#D1FAE5;--amber:#F59E0B;--amber-soft:#FEF3C7;
+  --radius:14px;--shadow:0 1px 2px rgba(15,23,42,.04),0 1px 3px rgba(15,23,42,.06);
+  --shadow-md:0 10px 30px -12px rgba(15,23,42,.18);
+  --ease:cubic-bezier(.22,1,.36,1);--dur:.28s;--ring:0 0 0 3px rgba(79,70,229,.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:'Manrope',-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;background:var(--surface);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:10px}
+.mark{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--brand-500),var(--brand))}
+.brand h1{margin:0;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.tag{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);background:var(--brand-soft);border:1px solid var(--brand-border);padding:2px 8px;border-radius:999px}
+.btn{font:inherit;font-weight:600;font-size:13px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;transition:background var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.btn:hover{background:var(--border-soft)}
+.btn:active{transform:scale(.98)}
+.btn:focus-visible{outline:none;box-shadow:var(--ring)}
+.btn-primary{background:var(--brand-600);border-color:var(--brand-600);color:#fff}
+.btn-primary:hover{background:var(--brand)}
+.wrap{max-width:1040px;margin:0 auto;padding:48px 28px 80px}
+.hero{margin-bottom:32px;animation:fadeUp .5s var(--ease) both}
+.hero h2{margin:0 0 8px;font-size:30px;font-weight:800;letter-spacing:-.03em}
+.hero p{margin:0;color:var(--ink-soft);max-width:560px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+.card{position:relative;display:flex;flex-direction:column;gap:12px;padding:22px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease);animation:fadeUp .5s var(--ease) both}
+.card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--brand-border)}
+.card:focus-visible{outline:none;box-shadow:var(--ring)}
+.icono{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:22px;background:var(--brand-soft);border:1px solid var(--brand-border)}
+.card h3{margin:0;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.card p{margin:0;color:var(--ink-soft);font-size:14px}
+.meta{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:6px}
+.estado{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 9px;border-radius:999px;background:var(--green-soft);color:#047857}
+.estado.beta{background:var(--amber-soft);color:#B45309}
+.abrir{font-size:13px;font-weight:700;color:var(--brand)}
+.card.proxima{border-style:dashed;background:transparent;box-shadow:none;cursor:default}
+.card.proxima:hover{transform:none;box-shadow:none}
+.card.proxima .icono{background:var(--border-soft);border-color:var(--border);color:var(--ink-faint)}
+.card.proxima h3,.card.proxima p{color:var(--ink-faint)}
+.aviso{margin-top:28px;padding:14px 16px;border-radius:12px;background:var(--brand-soft);border:1px solid var(--brand-border);color:var(--brand);font-size:13px;display:none}
+.aviso.show{display:block}
+.pie{margin-top:48px;color:var(--ink-faint);font-size:12px}
+.pie code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:var(--border-soft);padding:2px 6px;border-radius:6px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <h1>Apps</h1>
+    <span class="tag">TuBroki</span>
+  </div>
+  <div id="sesion"></div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h2>Herramientas internas</h2>
+    <p>Un solo lugar para las apps del equipo. Todas comparten la misma clave de acceso, el mismo backend y la misma base de datos — cada una en su propio espacio.</p>
+  </section>
+
+  <div class="aviso" id="aviso">Entra con la clave del equipo para usar las apps. Si no la tienes, pídesela a un socio.</div>
+
+  <section class="grid" id="grid" aria-label="Aplicaciones disponibles"></section>
+
+  <p class="pie">¿Nueva app? Crea la carpeta <code>apps/&lt;slug&gt;/</code> con <code>app.json</code> y <code>web/index.html</code>, y aparece aquí sola.</p>
+</main>
+
+<script>
+(async () => {
+  const grid = document.getElementById('grid');
+  const sesionEl = document.getElementById('sesion');
+  const aviso = document.getElementById('aviso');
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  let activa = false;
+  try {
+    const r = await fetch('/api/auth/sesion', { cache: 'no-store' });
+    activa = (await r.json()).activa === true;
+  } catch { /* backend caído: igual mostramos el catálogo */ }
+
+  if (activa) {
+    sesionEl.innerHTML = '<button class="btn" id="salir">Salir</button>';
+    document.getElementById('salir').addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      location.reload();
+    });
+  } else {
+    sesionEl.innerHTML = '<a class="btn btn-primary" href="/acceso">Entrar</a>';
+    aviso.classList.add('show');
+  }
+
+  let apps = [];
+  try {
+    const r = await fetch('/apps.json', { cache: 'no-store' });
+    apps = (await r.json()).apps || [];
+  } catch { /* sin catálogo */ }
+
+  const cards = apps.map((a, i) => `
+    <a class="card" href="${esc(a.ruta)}" style="animation-delay:${80 + i * 60}ms">
+      <div class="icono" aria-hidden="true">${esc(a.icono || '◆')}</div>
+      <h3>${esc(a.nombre)}</h3>
+      <p>${esc(a.descripcion || '')}</p>
+      <div class="meta">
+        <span class="estado ${a.estado === 'beta' ? 'beta' : ''}">${esc(a.estado || 'activa')}</span>
+        <span class="abrir">Abrir →</span>
+      </div>
+    </a>`);
+
+  cards.push(`
+    <div class="card proxima" style="animation-delay:${80 + apps.length * 60}ms" aria-hidden="true">
+      <div class="icono">+</div>
+      <h3>Próxima app</h3>
+      <p>Mismo backend, mismo Supabase, su propio schema.</p>
+    </div>`);
+
+  grid.innerHTML = cards.join('');
+})();
+</script>
+</body>
+</html>
