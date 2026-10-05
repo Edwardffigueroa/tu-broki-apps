@@ -15,7 +15,7 @@ alwaysApply: true
    - Genera `public/apps.json` (catálogo del launcher)
 3. Vite apps en `VITE_APPS` (`roadmap`, `diagramas`): `npm run build --prefix apps/<slug>/frontend` → `public/<slug>/`
 
-`vercel.json`: `buildCommand: npm run build`, `outputDirectory: public`, rewrites SPA para `/roadmap` y `/diagramas/*`, headers de seguridad + `X-Robots-Tag: noindex`.
+`vercel.json`: `installCommand` instala raíz + `apps/*/frontend` (con `--include=dev` para `tsc`/Vite), `buildCommand: npm run build`, `outputDirectory: public`, rewrites SPA, headers + `X-Robots-Tag: noindex`. No desplegar como “multiple services”.
 
 ## Dev local
 

@@ -43,9 +43,10 @@ En local, usa Vite para las SPAs; en Vercel un solo deploy sirve `public/<slug>/
 
 ## Desplegar en Vercel
 
-1. Importa el repo (preset **Other**; `vercel.json` trae `buildCommand` y `outputDirectory`).
-2. Env: `DATABASE_URL`, `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APPS_ALLOWED_EMAILS`.
-3. Deploy. Rutas: `/` · `/acceso` · `/contabilidad` · `/roadmap` · `/diagramas` · `/wiki` · `/api/...`.
+1. Importa el repo (preset **Other**). No uses “multiple services”: es un solo deploy.
+2. `vercel.json` define `installCommand` (raíz + frontends Vite), `buildCommand` y `outputDirectory: public`.
+3. Env: `DATABASE_URL`, `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APPS_ALLOWED_EMAILS`.
+4. Deploy. Rutas: `/` · `/acceso` · `/contabilidad` · `/roadmap` · `/diagramas` · `/wiki` · `/api/...`.
 
 Todas las páginas llevan `noindex` (meta + `X-Robots-Tag`).
 

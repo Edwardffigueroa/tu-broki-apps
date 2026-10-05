@@ -8,6 +8,7 @@
     "node": ">=22"
   },
   "scripts": {
+    "install:frontends": "npm install --prefix apps/roadmap/frontend --include=dev && npm install --prefix apps/diagramas/frontend --include=dev && npm install --prefix apps/contabilidad/frontend --include=dev",
     "build": "node scripts/build.mjs",
     "build:static": "node scripts/build.mjs --skip-vite",
     "build:roadmap": "npm run build --prefix apps/roadmap/frontend",
