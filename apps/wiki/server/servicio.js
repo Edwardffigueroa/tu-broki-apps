@@ -26,6 +26,7 @@ export async function bootstrap() {
   return {
     pages: data.pages,
     contents: data.contents,
+    aliases: data.aliases || [],
     bootstrapped_at: new Date().toISOString(),
   };
 }

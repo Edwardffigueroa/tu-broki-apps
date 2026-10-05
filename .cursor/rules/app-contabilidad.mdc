@@ -1,0 +1,16 @@
+---
+description: Convenciones de la app Contabilidad (finanzas internas)
+globs: apps/contabilidad/**/*,api/contabilidad/**/*
+alwaysApply: false
+---
+
+# Contabilidad
+
+App interna de finanzas: movimientos, P&G, CAC, metas y catálogo.
+
+- Schema Postgres: `contabilidad` (movimientos, metas, config)
+- Dominio puro en `apps/contabilidad/lib/finanzas.mjs` (compartido server + frontend + tests)
+- UI Vite en `/contabilidad/` (puerto dev 5175)
+- Auth: cookie de sesión del monorepo; sin modo local
+- Seed: `npm run seed:contabilidad`
+- Siempre `noindex`

@@ -189,10 +189,8 @@ Mira las hijas de [[Biblioteca de documentos]]: imagen, PDF y HTML de demo.
 
 async function main() {
   console.log(`\nSeed documentos → ${BASE}\n`);
-  await pedir('/api/auth/login', {
-    metodo: 'POST',
-    cuerpo: { clave: process.env.APPS_PASSWORD },
-  });
+  const { cookieSesionScript } = await import('./sesion-local.mjs');
+  cookie = cookieSesionScript();
 
   const bib = await asegurarPagina({
     title: 'Biblioteca de documentos',

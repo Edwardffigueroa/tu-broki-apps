@@ -1,0 +1,41 @@
+---
+description: Convención de tests node:test, cobertura y smoke scripts
+globs: tests/**/*,**/*.test.mjs,scripts/smoke*.mjs
+alwaysApply: false
+---
+
+# Testing
+
+## Runner
+
+```bash
+npm test   # node --test "tests/**/*.test.mjs"
+```
+
+- ESM `.mjs`, `node:test` + `node:assert/strict`
+- Unitarias: **sin red ni DB** (auth, csv, markdown, normalize modelo/carriles)
+- Importar módulos reales desde `shared/` y `apps/*/server` o `frontend/src/core`
+
+## Qué testear (prioridad)
+
+1. Validación/normalización de modelos (`validateTareas`, `normalizeModelo`, markdown/wikilinks)
+2. Auth crypto (`crearToken` / `verificarToken` / timing-safe)
+3. Serializers (CSV roadmap, narrativa diagramas)
+4. Reglas de negocio puras en `core/carriles/*`
+
+No mockear `postgres` en unitarias: el SQL se cubre con smoke manual/scripts.
+
+## Smoke / seeds (DB real)
+
+| Script | Uso |
+|---|---|
+| `npm run smoke:wiki` | E2E contra `npm run dev` + Postgres; limpia con papelera `ZZ-smoke-` |
+| `npm run seed:wiki` | Ejemplos Markdown |
+| `npm run seed:wiki-docs` | Biblioteca de documentos |
+
+Avisar antes de correr seeds/smoke si el usuario no lo pidió (escriben en el proyecto compartido del equipo).
+
+## Al cambiar contratos
+
+- Actualizar test del modelo **en el mismo PR/cambio**
+- Si falla solo por flakiness de red, no “arreglar” debilitando asserts de validación

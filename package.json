@@ -12,15 +12,22 @@
     "build:static": "node scripts/build.mjs --skip-vite",
     "build:roadmap": "npm run build --prefix apps/roadmap/frontend",
     "build:diagramas": "npm run build --prefix apps/diagramas/frontend",
+    "build:contabilidad": "npm run build --prefix apps/contabilidad/frontend",
     "dev": "node scripts/dev.mjs",
     "smoke:wiki": "node scripts/smoke-wiki.mjs",
     "seed:wiki": "node scripts/seed-wiki-ejemplos.mjs",
     "seed:wiki-docs": "node scripts/seed-wiki-documentos.mjs",
+    "seed:contabilidad": "node scripts/seed-contabilidad.mjs",
+    "import:wiki-vault": "CONFIRM_WIPE=1 node scripts/import-vault-wiki.mjs",
+    "import:wiki-vault:resume": "RESUME=1 node scripts/import-vault-wiki.mjs",
+    "wiki:dedupe-aliases": "node scripts/wiki-dedupe-aliases.mjs",
     "dev:roadmap": "npm run dev --prefix apps/roadmap/frontend",
     "dev:diagramas": "npm run dev --prefix apps/diagramas/frontend",
+    "dev:contabilidad": "npm run dev --prefix apps/contabilidad/frontend",
     "test": "node --test \"tests/**/*.test.mjs\""
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "postgres": "^3.4.5"
   }
 }

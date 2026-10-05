@@ -1,0 +1,7 @@
+# TuBroki Apps — AI guidance
+
+Canonical Cursor rules live in `.cursor/rules/`.
+
+This repo is **internal team tools** (`roadmap`, `wiki`, `diagramas`) — not the customer product.
+
+Do **not** apply patterns from `tu-broki-app` (Next.js / Prisma / Supabase Auth OTP / Clean Architecture layers). See `project-context.mdc`.

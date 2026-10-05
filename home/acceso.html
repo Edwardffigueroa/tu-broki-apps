@@ -22,7 +22,8 @@ html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--ink);font-family:'Manrope',-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;line-height:1.5;display:grid;place-items:center;padding:24px;-webkit-font-smoothing:antialiased}
 .card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);padding:32px;animation:fadeUp .5s var(--ease) both}
 .brand{display:flex;align-items:center;gap:10px;margin-bottom:22px}
-.mark{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,var(--brand-500),var(--brand))}
+.mark{width:30px;height:30px;border-radius:10px;overflow:hidden;flex-shrink:0;display:block}
+.mark img{width:100%;height:100%;object-fit:contain;display:block}
 .brand strong{font-size:16px;font-weight:800;letter-spacing:-.02em}
 .tag{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);background:var(--brand-soft);border:1px solid var(--brand-border);padding:2px 8px;border-radius:999px}
 h1{margin:0 0 6px;font-size:22px;font-weight:800;letter-spacing:-.03em}
@@ -34,10 +35,15 @@ input:focus{outline:none;border-color:var(--brand-500);box-shadow:var(--ring);ba
 .btn:hover{background:var(--brand)}
 .btn:active{transform:scale(.99)}
 .btn:disabled{opacity:.6;cursor:progress}
+.btn-ghost{margin-top:10px;background:transparent;border-color:var(--border);color:var(--ink-soft);font-weight:600}
+.btn-ghost:hover{background:var(--border-soft);color:var(--ink)}
 .error{display:none;margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--red-soft);border:1px solid var(--red-border);color:#9F1239;font-size:13px;animation:shake .35s var(--ease)}
 .error.show{display:block}
+.hint{margin:10px 0 0;font-size:12px;color:var(--ink-faint)}
 .pie{margin:18px 0 0;font-size:12px;color:var(--ink-faint)}
 .pie a{color:var(--brand);font-weight:600;text-decoration:none}
+.paso{display:none}
+.paso.show{display:block}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes shake{0%,100%{transform:none}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -45,12 +51,26 @@ input:focus{outline:none;border-color:var(--brand-500);box-shadow:var(--ring);ba
 </head>
 <body>
 <form class="card" id="form" autocomplete="off">
-  <div class="brand"><span class="mark" aria-hidden="true"></span><strong>Apps</strong><span class="tag">TuBroki</span></div>
-  <h1>Entra con la clave del equipo</h1>
-  <p>Es una sola clave para todas las apps internas. La sesión dura 30 días en este navegador.</p>
-  <label for="clave">Clave</label>
-  <input id="clave" name="clave" type="password" required autofocus autocomplete="current-password" placeholder="••••••••">
-  <button class="btn" id="btn" type="submit">Entrar</button>
+  <div class="brand"><span class="mark" aria-hidden="true"><img src="/assets/tubroki-icon.png" alt="" width="30" height="30" decoding="async"></span><strong>Apps</strong><span class="tag">TuBroki</span></div>
+
+  <div class="paso show" id="paso-email">
+    <h1>Entra con tu correo</h1>
+    <p>Te enviamos un código de verificación. Solo correos del equipo pueden entrar.</p>
+    <label for="email">Correo</label>
+    <input id="email" name="email" type="email" required autofocus autocomplete="email" placeholder="tu@correo.com" inputmode="email">
+    <button class="btn" id="btn-email" type="submit">Enviar código</button>
+  </div>
+
+  <div class="paso" id="paso-codigo">
+    <h1>Ingresa el código</h1>
+    <p>Revisa el correo <strong id="email-mostrar"></strong>. El código suele llegar en menos de un minuto.</p>
+    <label for="codigo">Código</label>
+    <input id="codigo" name="codigo" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="one-time-code" placeholder="123456">
+    <button class="btn" id="btn-codigo" type="submit">Entrar</button>
+    <button class="btn btn-ghost" id="btn-otro" type="button">Usar otro correo</button>
+    <p class="hint">¿No llegó? Espera un momento o vuelve a enviar desde el correo anterior.</p>
+  </div>
+
   <div class="error" id="error" role="alert"></div>
   <p class="pie"><a href="/">← Volver al inicio</a></p>
 </form>
@@ -58,35 +78,104 @@ input:focus{outline:none;border-color:var(--brand-500);box-shadow:var(--ring);ba
 <script>
 (() => {
   const form = document.getElementById('form');
-  const btn = document.getElementById('btn');
+  const pasoEmail = document.getElementById('paso-email');
+  const pasoCodigo = document.getElementById('paso-codigo');
+  const emailInput = document.getElementById('email');
+  const codigoInput = document.getElementById('codigo');
+  const emailMostrar = document.getElementById('email-mostrar');
+  const btnEmail = document.getElementById('btn-email');
+  const btnCodigo = document.getElementById('btn-codigo');
+  const btnOtro = document.getElementById('btn-otro');
   const errorEl = document.getElementById('error');
+
   const params = new URLSearchParams(location.search);
   // Solo rutas internas: evita redirecciones abiertas a otros dominios.
   const volverRaw = params.get('volver') || '/';
   const volver = /^\/(?!\/)/.test(volverRaw) ? volverRaw : '/';
 
+  let emailActual = '';
+  let paso = 'email';
+
+  function mostrarError(msg) {
+    errorEl.textContent = msg;
+    errorEl.classList.add('show');
+  }
+
+  function limpiarError() {
+    errorEl.classList.remove('show');
+    errorEl.textContent = '';
+  }
+
+  function irACodigo(email) {
+    emailActual = email;
+    paso = 'codigo';
+    emailMostrar.textContent = email;
+    pasoEmail.classList.remove('show');
+    pasoCodigo.classList.add('show');
+    codigoInput.value = '';
+    codigoInput.focus();
+  }
+
+  function irAEmail() {
+    paso = 'email';
+    emailActual = '';
+    pasoCodigo.classList.remove('show');
+    pasoEmail.classList.add('show');
+    emailInput.focus();
+    emailInput.select();
+  }
+
+  btnOtro.addEventListener('click', () => {
+    limpiarError();
+    irAEmail();
+  });
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    errorEl.classList.remove('show');
-    btn.disabled = true;
-    btn.textContent = 'Entrando…';
+    limpiarError();
+
+    if (paso === 'email') {
+      const email = emailInput.value.trim();
+      if (!email) return;
+      btnEmail.disabled = true;
+      btnEmail.textContent = 'Enviando…';
+      try {
+        const r = await fetch('/api/auth/enviar-codigo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'No se pudo enviar el código.');
+        irACodigo(d.email || email);
+      } catch (err) {
+        mostrarError(err.message);
+      } finally {
+        btnEmail.disabled = false;
+        btnEmail.textContent = 'Enviar código';
+      }
+      return;
+    }
+
+    const codigo = codigoInput.value.trim();
+    if (!codigo) return;
+    btnCodigo.disabled = true;
+    btnCodigo.textContent = 'Verificando…';
     try {
-      const r = await fetch('/api/auth/login', {
+      const r = await fetch('/api/auth/verificar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clave: document.getElementById('clave').value }),
+        credentials: 'same-origin',
+        body: JSON.stringify({ email: emailActual, codigo }),
       });
-      if (!r.ok) {
-        const d = await r.json().catch(() => ({}));
-        throw new Error(d.error || 'No se pudo entrar.');
-      }
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || 'No se pudo verificar el código.');
       location.replace(volver);
     } catch (err) {
-      errorEl.textContent = err.message;
-      errorEl.classList.add('show');
-      btn.disabled = false;
-      btn.textContent = 'Entrar';
-      document.getElementById('clave').select();
+      mostrarError(err.message);
+      btnCodigo.disabled = false;
+      btnCodigo.textContent = 'Entrar';
+      codigoInput.select();
     }
   });
 })();

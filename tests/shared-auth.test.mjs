@@ -3,13 +3,16 @@ import assert from 'node:assert/strict';
 import {
   crearToken,
   verificarToken,
-  claveValida,
+  emailPermitido,
+  emailsPermitidos,
+  normalizarEmail,
   leerCookie,
   cookieSesion,
   COOKIE,
 } from '../shared/auth.js';
 
 const SECRETO = 'secreto-de-prueba';
+const LISTA = 'edward@example.com, SOPORTE@Tubroki.com ,otro@test.com';
 
 describe('auth: tokens firmados', () => {
   it('crea y verifica un token válido', () => {
@@ -37,12 +40,15 @@ describe('auth: tokens firmados', () => {
   });
 });
 
-describe('auth: clave y cookie', () => {
-  it('compara la clave en tiempo constante', () => {
-    assert.equal(claveValida('abc', 'abc'), true);
-    assert.equal(claveValida('abd', 'abc'), false);
-    assert.equal(claveValida('', 'abc'), false);
-    assert.equal(claveValida(undefined, 'abc'), false);
+describe('auth: allowlist y cookie', () => {
+  it('normaliza y valida emails de la allowlist', () => {
+    assert.equal(normalizarEmail('  Edward@Example.com '), 'edward@example.com');
+    assert.equal(emailPermitido('edward@example.com', LISTA), true);
+    assert.equal(emailPermitido('SOPORTE@tubroki.com', LISTA), true);
+    assert.equal(emailPermitido('intruso@evil.com', LISTA), false);
+    assert.equal(emailPermitido('', LISTA), false);
+    assert.equal(emailPermitido('no-es-email', LISTA), false);
+    assert.equal(emailsPermitidos(LISTA).size, 3);
   });
 
   it('lee la cookie de sesión del header', () => {

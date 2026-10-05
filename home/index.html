@@ -23,7 +23,8 @@ html,body{margin:0;min-height:100%}
 body{background:var(--bg);color:var(--ink);font-family:'Manrope',-apple-system,BlinkMacSystemFont,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;background:var(--surface);border-bottom:1px solid var(--border)}
 .brand{display:flex;align-items:center;gap:10px}
-.mark{width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,var(--brand-500),var(--brand))}
+.mark{width:28px;height:28px;border-radius:9px;overflow:hidden;flex-shrink:0;display:block}
+.mark img{width:100%;height:100%;object-fit:contain;display:block}
 .brand h1{margin:0;font-size:17px;font-weight:800;letter-spacing:-.02em}
 .tag{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);background:var(--brand-soft);border:1px solid var(--brand-border);padding:2px 8px;border-radius:999px}
 .btn{font:inherit;font-weight:600;font-size:13px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;transition:background var(--dur) var(--ease),transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
@@ -36,11 +37,14 @@ body{background:var(--bg);color:var(--ink);font-family:'Manrope',-apple-system,B
 .hero{margin-bottom:32px;animation:fadeUp .5s var(--ease) both}
 .hero h2{margin:0 0 8px;font-size:30px;font-weight:800;letter-spacing:-.03em}
 .hero p{margin:0;color:var(--ink-soft);max-width:560px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+.grid{display:none;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px}
+.grid.show{display:grid}
 .card{position:relative;display:flex;flex-direction:column;gap:12px;padding:22px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease);animation:fadeUp .5s var(--ease) both}
 .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);border-color:var(--brand-border)}
 .card:focus-visible{outline:none;box-shadow:var(--ring)}
-.icono{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:22px;background:var(--brand-soft);border:1px solid var(--brand-border)}
+.icono{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:22px;background:var(--brand-soft);border:1px solid var(--brand-border);overflow:hidden;flex-shrink:0}
+.icono img{width:100%;height:100%;object-fit:contain;display:block}
+.icono.logo{padding:6px;background:var(--surface);border-color:var(--border)}
 .card h3{margin:0;font-size:17px;font-weight:800;letter-spacing:-.02em}
 .card p{margin:0;color:var(--ink-soft);font-size:14px}
 .meta{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:6px}
@@ -51,9 +55,11 @@ body{background:var(--bg);color:var(--ink);font-family:'Manrope',-apple-system,B
 .card.proxima:hover{transform:none;box-shadow:none}
 .card.proxima .icono{background:var(--border-soft);border-color:var(--border);color:var(--ink-faint)}
 .card.proxima h3,.card.proxima p{color:var(--ink-faint)}
-.aviso{margin-top:28px;padding:14px 16px;border-radius:12px;background:var(--brand-soft);border:1px solid var(--brand-border);color:var(--brand);font-size:13px;display:none}
+.aviso{margin-top:8px;padding:18px 20px;border-radius:12px;background:var(--brand-soft);border:1px solid var(--brand-border);color:var(--brand);font-size:14px;display:none;max-width:480px}
 .aviso.show{display:block}
-.pie{margin-top:48px;color:var(--ink-faint);font-size:12px}
+.aviso a{color:inherit;font-weight:700}
+.pie{margin-top:48px;color:var(--ink-faint);font-size:12px;display:none}
+.pie.show{display:block}
 .pie code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:var(--border-soft);padding:2px 6px;border-radius:6px}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -63,7 +69,7 @@ body{background:var(--bg);color:var(--ink);font-family:'Manrope',-apple-system,B
 
 <header class="topbar">
   <div class="brand">
-    <span class="mark" aria-hidden="true"></span>
+    <span class="mark" aria-hidden="true"><img src="/assets/tubroki-icon.png" alt="" width="28" height="28" decoding="async"></span>
     <h1>Apps</h1>
     <span class="tag">TuBroki</span>
   </div>
@@ -73,14 +79,14 @@ body{background:var(--bg);color:var(--ink);font-family:'Manrope',-apple-system,B
 <main class="wrap">
   <section class="hero">
     <h2>Herramientas internas</h2>
-    <p>Un solo lugar para las apps del equipo. Todas comparten la misma clave de acceso, el mismo backend y la misma base de datos — cada una en su propio espacio.</p>
+    <p>Un solo lugar para las apps del equipo. Todas comparten el mismo acceso por correo, el mismo backend y la misma base de datos — cada una en su propio espacio.</p>
   </section>
 
-  <div class="aviso" id="aviso">Entra con la clave del equipo para usar las apps. Si no la tienes, pídesela a un socio.</div>
+  <div class="aviso" id="aviso">Para ver las herramientas del equipo, <a href="/acceso">entra con tu correo</a>. Te enviamos un código de verificación.</div>
 
-  <section class="grid" id="grid" aria-label="Aplicaciones disponibles"></section>
+  <section class="grid" id="grid" aria-label="Aplicaciones disponibles" hidden></section>
 
-  <p class="pie">¿Nueva app? Crea la carpeta <code>apps/&lt;slug&gt;/</code> con <code>app.json</code> y <code>web/index.html</code>, y aparece aquí sola.</p>
+  <p class="pie" id="pie">¿Nueva app? Crea la carpeta <code>apps/&lt;slug&gt;/</code> con <code>app.json</code> y <code>web/index.html</code>, y aparece aquí sola.</p>
 </main>
 
 <script>
@@ -88,24 +94,30 @@ body{background:var(--bg);color:var(--ink);font-family:'Manrope',-apple-system,B
   const grid = document.getElementById('grid');
   const sesionEl = document.getElementById('sesion');
   const aviso = document.getElementById('aviso');
+  const pie = document.getElementById('pie');
+  const heroP = document.querySelector('.hero p');
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   let activa = false;
   try {
     const r = await fetch('/api/auth/sesion', { cache: 'no-store' });
     activa = (await r.json()).activa === true;
-  } catch { /* backend caído: igual mostramos el catálogo */ }
+  } catch { /* sin backend: tratamos como sin sesión */ }
 
-  if (activa) {
-    sesionEl.innerHTML = '<button class="btn" id="salir">Salir</button>';
-    document.getElementById('salir').addEventListener('click', async () => {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      location.reload();
-    });
-  } else {
+  if (!activa) {
     sesionEl.innerHTML = '<a class="btn btn-primary" href="/acceso">Entrar</a>';
     aviso.classList.add('show');
+    if (heroP) {
+      heroP.textContent = 'Estas herramientas son solo para el equipo. Entra con tu correo para verlas.';
+    }
+    return;
   }
+
+  sesionEl.innerHTML = '<button class="btn" id="salir">Salir</button>';
+  document.getElementById('salir').addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    location.reload();
+  });
 
   let apps = [];
   try {
@@ -113,25 +125,44 @@ body{background:var(--bg);color:var(--ink);font-family:'Manrope',-apple-system,B
     apps = (await r.json()).apps || [];
   } catch { /* sin catálogo */ }
 
-  const cards = apps.map((a, i) => `
-    <a class="card" href="${esc(a.ruta)}" style="animation-delay:${80 + i * 60}ms">
-      <div class="icono" aria-hidden="true">${esc(a.icono || '◆')}</div>
+  let enlaces = [];
+  try {
+    const r = await fetch('/enlaces.json', { cache: 'no-store' });
+    enlaces = (await r.json()).enlaces || [];
+  } catch { /* sin enlaces externos */ }
+
+  const esExterna = (ruta) => /^https?:\/\//i.test(ruta || '');
+  const iconoHtml = (a) => a.logo
+    ? `<div class="icono logo" aria-hidden="true"><img src="${esc(a.logo)}" alt="" width="34" height="34" loading="lazy" decoding="async"></div>`
+    : `<div class="icono" aria-hidden="true">${esc(a.icono || '◆')}</div>`;
+
+  const items = [...apps, ...enlaces.map((e) => ({ ...e, externa: true }))];
+  const cards = items.map((a, i) => {
+    const externa = a.externa || esExterna(a.ruta);
+    const attrs = externa ? ' target="_blank" rel="noopener noreferrer"' : '';
+    return `
+    <a class="card" href="${esc(a.ruta)}"${attrs} style="animation-delay:${80 + i * 60}ms">
+      ${iconoHtml(a)}
       <h3>${esc(a.nombre)}</h3>
       <p>${esc(a.descripcion || '')}</p>
       <div class="meta">
         <span class="estado ${a.estado === 'beta' ? 'beta' : ''}">${esc(a.estado || 'activa')}</span>
-        <span class="abrir">Abrir →</span>
+        <span class="abrir">${externa ? 'Abrir ↗' : 'Abrir →'}</span>
       </div>
-    </a>`);
+    </a>`;
+  });
 
   cards.push(`
-    <div class="card proxima" style="animation-delay:${80 + apps.length * 60}ms" aria-hidden="true">
+    <div class="card proxima" style="animation-delay:${80 + items.length * 60}ms" aria-hidden="true">
       <div class="icono">+</div>
       <h3>Próxima app</h3>
       <p>Mismo backend, mismo Supabase, su propio schema.</p>
     </div>`);
 
   grid.innerHTML = cards.join('');
+  grid.hidden = false;
+  grid.classList.add('show');
+  pie.classList.add('show');
 })();
 </script>
 </body>

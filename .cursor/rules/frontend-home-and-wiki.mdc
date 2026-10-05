@@ -1,0 +1,45 @@
+---
+description: Launcher home/ y wiki vanilla JS — HTML plano, tokens y sesión
+globs: home/**/*,apps/wiki/web/**/*
+alwaysApply: false
+---
+
+# Frontend HTML — home y wiki
+
+## Home (`home/`)
+
+| Archivo | Rol |
+|---|---|
+| `index.html` | Launcher: lee `/api/auth/sesion` + `apps.json` + `enlaces.json`, cards de apps |
+| `enlaces.json` | Enlaces externos (Admin, Twilio, Chatwoot…) con `logo` en `/assets/` |
+| `acceso.html` | Login email + OTP; `volver` sanitizado a ruta interna |
+
+- CSS inline con tokens (`--brand`, `--ink`, Manrope). Mantener coherencia visual al tocar.
+- Sin bundler: cambios se ven al recargar con `npm run dev`.
+- Build copia `home/` a raíz de `public/`.
+
+## Wiki (`apps/wiki/web/`)
+
+```
+index.html
+wiki.css
+js/api.js      # cliente HTTP
+js/cache.js    # SWR en memoria + bootstrap
+js/app.js      # UI, atajos, árbol, editor
+```
+
+### Patrones a respetar
+
+- Auth: `credentials: 'same-origin'`; 401 → `/acceso`.
+- Cache: `bootstrap` carga árbol + contenidos; navegación instantánea + revalidación; invalidar en mutaciones; revalidar al focus (~30 s).
+- Autoguardado (~2 s) → draft; **Ctrl/Cmd+S** → versión inmutable.
+- Wikilinks `[[…]]` por `title_key`; Mermaid solo en vista previa (cliente).
+- Assets: `![alt](asset:UUID)`; upload base64 máx 3 MB (límite body Vercel ~4,5 MB).
+- Páginas `kind=file`: PDF/HTML/imagen; HTML en iframe `sandbox` sin scripts.
+- Atajos documentados en `apps/wiki/README.md` — no romper sin actualizar README.
+
+### Musts
+
+- `noindex` en `<head>`.
+- No reescribir wiki a React/Vite sin decisión explícita (hoy es HTML a propósito: hot reload simple).
+- Módulos ES en `js/` importados desde `index.html`; mantener API en `api.js` separado de UI.

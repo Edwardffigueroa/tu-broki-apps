@@ -3,7 +3,7 @@
  *
  *   node scripts/seed-wiki-ejemplos.mjs
  *
- * Requiere `npm run dev` corriendo y `.env.local` con APPS_PASSWORD.
+ * Requiere `npm run dev` corriendo y `.env.local` con SESSION_SECRET.
  * Si ya existen páginas con el mismo título, actualiza el contenido y guarda
  * una versión nueva (no duplica el árbol).
  */
@@ -718,10 +718,8 @@ con \`[[Glosario del equipo]]\` o crea entradas hijas si crecen mucho.
 async function main() {
   console.log(`\nSeed Wiki ejemplos → ${BASE}\n`);
 
-  await pedir('/api/auth/login', {
-    metodo: 'POST',
-    cuerpo: { clave: process.env.APPS_PASSWORD },
-  });
+  const { cookieSesionScript } = await import('./sesion-local.mjs');
+  cookie = cookieSesionScript();
   console.log('sesión ok\n');
 
   // Limpieza de stubs viejos que ya no aportan.

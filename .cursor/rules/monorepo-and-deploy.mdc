@@ -1,0 +1,65 @@
+---
+description: Build, monorepo layout, Vercel deploy, y cómo agregar una app nueva
+alwaysApply: true
+---
+
+# Monorepo, build y deploy
+
+## Cómo se arma el producto
+
+`scripts/build.mjs` regenera `public/` (gitignored):
+
+1. Copia `home/` → `public/`
+2. Para cada `apps/<slug>/` con `app.json` (no `oculta`):
+   - Si **no** es Vite: copia `web/` → `public/<slug>/`
+   - Genera `public/apps.json` (catálogo del launcher)
+3. Vite apps en `VITE_APPS` (`roadmap`, `diagramas`): `npm run build --prefix apps/<slug>/frontend` → `public/<slug>/`
+
+`vercel.json`: `buildCommand: npm run build`, `outputDirectory: public`, rewrites SPA para `/roadmap` y `/diagramas/*`, headers de seguridad + `X-Robots-Tag: noindex`.
+
+## Dev local
+
+```bash
+cp .env.example .env.local   # DATABASE_URL, SESSION_SECRET, SUPABASE_*, APPS_ALLOWED_EMAILS
+npm install
+npm run dev                  # API + launcher/wiki en :4747
+npm run dev:roadmap          # Vite :5173/roadmap/ (proxy /api → :4747)
+npm run dev:diagramas        # Vite :5174/diagramas/
+```
+
+- HTML (`home/`, `apps/wiki/web/`): hot reload al refrescar (dev lee fuente).
+- Cambios en `api/`, `shared/`, `apps/*/server/`: **reiniciar** `npm run dev` (caché de módulos Node).
+- Vite SPAs: trabajar en el puerto de Vite, no en el build estático de `:4747`, salvo smoke.
+
+## Contrato de una app
+
+```
+apps/<slug>/
+  app.json          # nombre, descripcion, icono, estado, schema
+  server/           # modelo.js + repositorio.js + servicio.js (+ helpers)
+  web/              # UI HTML (wiki)  XOR
+  frontend/         # UI Vite React (roadmap, diagramas)
+```
+
+`app.json` alimenta el launcher. Campo `schema` = schema Postgres. Si falta `app.json`, el build la omite del catálogo.
+
+## Agregar app nueva (checklist)
+
+1. `apps/<slug>/` con `app.json` + `server/` + UI (`web/` o `frontend/`)
+2. Migración `supabase/migrations/AAAAMMDD_00NN_<slug>_schema.sql` + grants a `tubroki_apps` (ver `database-supabase.mdc`)
+3. Rutas `api/<slug>/*.js` → llaman `servicio`, nunca SQL directo
+4. Si Vite: añadir slug a `VITE_APPS` en `scripts/build.mjs`, script `build:<slug>` / `dev:<slug>` en `package.json`, rewrite SPA en `vercel.json`, proxy en `vite.config.ts`
+   - Puertos Vite actuales: roadmap 5173, diagramas 5174, contabilidad 5175
+5. README de la app + tests unitarios del modelo
+6. Toda página: `noindex` (meta + headers ya globales)
+
+## Env
+
+Variables críticas (`.env.example`):
+
+- `DATABASE_URL` — pooler 6543, rol `tubroki_apps`
+- `SESSION_SECRET` — HMAC (`openssl rand -hex 32`)
+- `SUPABASE_URL` / `SUPABASE_ANON_KEY` — Auth OTP del proyecto `tubroki-apps`
+- `APPS_ALLOWED_EMAILS` — correos con acceso total (coma-separados)
+
+Nunca commitear `.env` / `.env.local`. Cargar local: `scripts/dev.mjs` usa `process.loadEnvFile('.env.local')`.

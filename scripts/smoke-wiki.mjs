@@ -64,10 +64,10 @@ async function main() {
   console.log('sesión');
   const sinSesion = await pedir('/api/wiki/pages');
   ok('API privada responde 401 sin cookie', sinSesion.status === 401, `status ${sinSesion.status}`);
-  const login = await pedir('/api/auth/login', {
-    metodo: 'POST', cuerpo: { clave: process.env.APPS_PASSWORD },
-  });
-  if (!ok('login con APPS_PASSWORD', login.status === 200, JSON.stringify(login.json))) return;
+  const { cookieSesionScript } = await import('./sesion-local.mjs');
+  cookie = cookieSesionScript();
+  const conSesion = await pedir('/api/auth/sesion');
+  if (!ok('sesión local con SESSION_SECRET', conSesion.status === 200 && conSesion.json?.activa === true, JSON.stringify(conSesion.json))) return;
 
   console.log('\npáginas y árbol');
   const padre = await crear('ZZ-smoke-padre');

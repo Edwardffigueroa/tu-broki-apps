@@ -1,0 +1,58 @@
+---
+description: Convenciones React+Vite+TS para frontends roadmap y diagramas
+globs: apps/*/frontend/**/*
+alwaysApply: false
+---
+
+# Frontend Vite — React 19 + TypeScript
+
+Aplica a `apps/roadmap/frontend`, `apps/diagramas/frontend` y `apps/contabilidad/frontend` (no a wiki HTML).
+
+## Setup obligatorio
+
+- `base: '/<slug>/'` en `vite.config.ts`
+- `build.outDir` → `../../../public/<slug>` (`emptyOutDir: true`)
+- Dev: `strictPort`, proxy `/api` y `/acceso` → `http://127.0.0.1:4747`
+- Build: `tsc -b && vite build`; lint con **oxlint**
+- Dependencias mínimas: React 19 + Vite 8. Diagramas añade `marked`, `dompurify`, `mermaid`. No meter Next, TanStack Query, Tailwind, shadcn ni RHF “porque tu-broki-app los usa”.
+
+## Estructura tipica
+
+```
+src/
+  api/          # fetch tipado, AuthError/ConflictError, irAAcceso()
+  lib/          # types, constants, utils
+  state/ o features/  # store / páginas
+  components/ o features/*/
+  styles/       # CSS con variables (:root tokens)
+  main.tsx, App.tsx
+```
+
+## API client
+
+```ts
+fetch(url, { credentials: 'include', cache: 'no-store', … })
+// 401 → AuthError → irAAcceso()
+// 409 → ConflictError (versión/revisión)
+```
+
+- Nunca guardar códigos OTP o el token de sesión en `localStorage`.
+- Cuerpos JSON; errores con `data.error` del backend.
+
+## UI / CSS
+
+- Tokens CSS propios por app (`:root` / `tokens.css`). Tipografías: Manrope (home/roadmap vibe) o Bricolage+Instrument+Manrope (diagramas).
+- Preferir CSS dedicado a la app; no copiar sistema de `tu-broki-app`.
+- Respetar `prefers-reduced-motion` y `prefers-color-scheme` / `data-theme` si la app ya los tiene (diagramas).
+- Español en labels, toasts, ayudas.
+
+## Estado
+
+- **Roadmap:** un `RoadmapStore` (reducer + context) + debounce de guardado (~400 ms) del tablero completo.
+- **Diagramas:** controller por editor + páginas Library/Editor; motor en `src/core/carriles/` (puro, testeable).
+- Evitar duplicar lógica de normalización: el servidor también valida; el cliente puede pre-normalizar para UX pero el contrato canónico vive en `server/modelo.js` / `core/carriles`.
+
+## SEO / shell
+
+- `index.html` con `<meta name="robots" content="noindex, nofollow">`.
+- SPA: rutas client-side bajo `/<slug>/…`; el rewrite de Vercel ya cubre deep links de diagramas.

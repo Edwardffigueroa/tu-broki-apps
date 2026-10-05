@@ -1,0 +1,25 @@
+{
+  "enlaces": [
+    {
+      "nombre": "Admin TuBroki",
+      "descripcion": "App de operación: clientes, órdenes, propiedades y el día a día del equipo.",
+      "ruta": "https://tu-broki-app.vercel.app/",
+      "logo": "/assets/tubroki-icon.png",
+      "estado": "activa"
+    },
+    {
+      "nombre": "Twilio",
+      "descripcion": "Consola de Twilio: SMS, WhatsApp, números y configuración de mensajería.",
+      "ruta": "https://auth.twilio.com/login",
+      "logo": "/assets/twilio-icon.png",
+      "estado": "activa"
+    },
+    {
+      "nombre": "Chatwoot",
+      "descripcion": "Inbox del equipo: conversaciones de WhatsApp, web y soporte en un solo lugar.",
+      "ruta": "https://app.chatwoot.com/app/accounts/182362/dashboard",
+      "logo": "/assets/chatwoot-icon.png",
+      "estado": "activa"
+    }
+  ]
+}

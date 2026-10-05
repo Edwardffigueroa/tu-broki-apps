@@ -1,0 +1,55 @@
+# Auth y seguridad
+
+## Modelo de acceso
+
+Email OTP vía **Supabase Auth** del proyecto `tubroki-apps` + cookie httpOnly firmada. Solo correos en `APPS_ALLOWED_EMAILS` entran; todos ellos tienen acceso total (sin roles por persona).
+
+```
+POST /api/auth/enviar-codigo { email }   → Supabase signInWithOtp (solo allowlist)
+POST /api/auth/verificar { email, codigo } → verifyOtp → Set-Cookie tb_sesion (30 días)
+POST /api/auth/logout                    → borra cookie
+GET  /api/auth/sesion                    → { activa: boolean }  (público; no filtra secretos)
+```
+
+Token autocontenido `exp.firma` (HMAC-SHA256 con `SESSION_SECRET`). **No** hay tabla de sesiones.
+
+Implementación: `shared/auth.js`.
+
+## Musts en APIs privadas
+
+```js
+export const GET = manejar(async (request) => {
+  exigirSesion(request); // 401 → { error, codigo: 'sin_sesion' }
+  // …
+});
+```
+
+- Toda ruta bajo `api/<app>/` exige sesión al inicio.
+- Excepciones: `api/auth/enviar-codigo`, `api/auth/verificar`, `api/auth/sesion` (logout puede ser best-effort).
+- Frontend: `credentials: 'include'` / `same-origin`; ante `401` → `/acceso?volver=<ruta interna>`.
+- `volver` solo rutas relativas internas (`/^\/(?!\/)/`) — anti open-redirect (ver `home/acceso.html`).
+
+## Hardening ya presente (no romper)
+
+- Allowlist en servidor antes de llamar a Supabase (rechazo genérico + delay ~600 ms)
+- Revalidación de allowlist tras `verifyOtp`
+- Comparación de token con `timingSafeEqual`
+- Cookie `Secure` solo en Vercel/producción (Safari local rechaza Secure en http)
+- `Cache-Control: no-store` en JSON
+- Headers globales: `X-Robots-Tag: noindex`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`
+- Errores 500 genéricos (`shared/http.js`) — no filtrar stack al cliente
+- PostgREST: schemas de apps **no** expuestos; solo backend con `tubroki_apps`
+- RLS ON + revoke a `anon`/`authenticated`; política `backend_total` solo para el rol
+- Anon key solo en servidor (no en HTML estático)
+
+## Forbidden
+
+- Autorizar con cookies forgeables tipo `auth=true`
+- Poner `SESSION_SECRET` / `SUPABASE_ANON_KEY` / password del rol en el repo o migraciones versionadas
+- Exponer schemas vía Supabase API / service role en el browser
+- Servir HTML de apps sin `noindex` (son internas)
+- Loguear cuerpos con códigos OTP o tokens
+
+## Amenaza realista
+
+Allowlist fija de correos del equipo. Quien reciba el OTP en un correo permitido ve todo. No diseñes permisos por usuario encima sin decisión explícita del equipo.

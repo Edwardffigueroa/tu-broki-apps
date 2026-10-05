@@ -5,7 +5,7 @@
  *   - enruta /api/<ruta> → api/<ruta>.js y ejecuta el export del método (GET, PUT, POST…)
  *     con la misma firma Web Request → Response que usa Vercel.
  *
- * Variables: .env.local (DATABASE_URL, APPS_PASSWORD, SESSION_SECRET).
+ * Variables: .env.local (DATABASE_URL, SESSION_SECRET, SUPABASE_*, APPS_ALLOWED_EMAILS).
  * Uso: npm run dev   (o NO_OPEN=1 npm run dev para no abrir el navegador)
  */
 
@@ -78,7 +78,7 @@ function resolverEstatico(pathname) {
 
   // SPA fallback: /roadmap|diagramas y /* (sin extensión) → public/<slug>/index.html
   const parts = limpio.split('/').filter(Boolean);
-  if (parts[0] === 'roadmap' || parts[0] === 'diagramas') {
+  if (parts[0] === 'roadmap' || parts[0] === 'diagramas' || parts[0] === 'contabilidad') {
     const spa = path.join(PUBLIC, parts[0], 'index.html');
     if (fs.existsSync(spa)) return spa;
   }

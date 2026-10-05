@@ -1,6 +1,6 @@
 # tu-broki-apps
 
-Herramientas internas de TuBroki en un solo despliegue: **un launcher**, **un backend compartido**, **un proyecto de Supabase** y **una app por carpeta**. Apps: `roadmap`, `wiki`, `diagramas`.
+Herramientas internas de TuBroki en un solo despliegue: **un launcher**, **un backend compartido**, **un proyecto de Supabase** y **una app por carpeta**. Apps: `contabilidad`, `diagramas`, `roadmap`, `wiki`.
 
 ```
 tu-broki-apps/
@@ -23,18 +23,19 @@ tu-broki-apps/
 
 ## Cómo funciona
 
-- **Una clave para todo.** `/acceso` pide la clave del equipo (`APPS_PASSWORD`), cookie httpOnly firmada con `SESSION_SECRET`.
+- **Email OTP del equipo.** `/acceso` pide tu correo, llega un código (Supabase Auth del proyecto `tubroki-apps`). Solo correos en `APPS_ALLOWED_EMAILS` entran; cookie httpOnly firmada con `SESSION_SECRET`.
 - **Un Supabase, un schema por app.** Rol `tubroki_apps` por el transaction pooler.
-- **Build:** `scripts/build.mjs` copia `home/` + apps HTML (`wiki`) y genera `apps.json`. Luego Vite construye `roadmap` y `diagramas`.
+- **Build:** `scripts/build.mjs` copia `home/` + apps HTML (`wiki`) y genera `apps.json`. Luego Vite construye `roadmap`, `diagramas` y `contabilidad`.
 
 ## Desarrollo local
 
 ```bash
 npm install
-cp .env.example .env.local     # DATABASE_URL, APPS_PASSWORD, SESSION_SECRET
+cp .env.example .env.local     # DATABASE_URL, SESSION_SECRET, SUPABASE_*, APPS_ALLOWED_EMAILS
 npm run dev                    # API + launcher/wiki en http://127.0.0.1:4747
 npm run dev:roadmap            # Vite roadmap en http://127.0.0.1:5173/roadmap/ (proxy /api)
 npm run dev:diagramas          # Vite diagramas en http://127.0.0.1:5174/diagramas/ (proxy /api)
+npm run dev:contabilidad       # Vite contabilidad en http://127.0.0.1:5175/contabilidad/ (proxy /api)
 npm test
 ```
 
@@ -43,8 +44,8 @@ En local, usa Vite para las SPAs; en Vercel un solo deploy sirve `public/<slug>/
 ## Desplegar en Vercel
 
 1. Importa el repo (preset **Other**; `vercel.json` trae `buildCommand` y `outputDirectory`).
-2. Env: `DATABASE_URL`, `APPS_PASSWORD`, `SESSION_SECRET`.
-3. Deploy. Rutas: `/` · `/acceso` · `/roadmap` · `/diagramas` · `/wiki` · `/api/...`.
+2. Env: `DATABASE_URL`, `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `APPS_ALLOWED_EMAILS`.
+3. Deploy. Rutas: `/` · `/acceso` · `/contabilidad` · `/roadmap` · `/diagramas` · `/wiki` · `/api/...`.
 
 Todas las páginas llevan `noindex` (meta + `X-Robots-Tag`).
 

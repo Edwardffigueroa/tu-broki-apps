@@ -1,0 +1,7 @@
+{
+  "nombre": "Contabilidad",
+  "descripcion": "Libro de movimientos, P&G, CAC, rentabilidad por servicio y metas. Datos compartidos del equipo.",
+  "icono": "📒",
+  "estado": "activa",
+  "schema": "contabilidad"
+}

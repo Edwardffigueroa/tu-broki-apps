@@ -1,0 +1,3 @@
+Fecha;Tipo;Cuenta PUC;Servicio/Categoría;Concepto;Cantidad;Monto bruto;Ventas netas (sin IVA);IVA;Costo directo;Estado;Pagó/recibió;Tercero;Medio de pago;Notas
+2026-10-02;Gasto;523595;Tecnología y software;Google Workspace;;70000;;;;Pagado;Empresa;Google;;
+2026-10-03;Ingreso;4155;Todo para vender;;1;789000;663025;125975;59723;Cobrado;Empresa;;Transferencia;

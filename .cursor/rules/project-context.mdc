@@ -1,0 +1,55 @@
+---
+description: Identidad de tu-broki-apps, stack real, carpetas y diferencia vs tu-broki-app
+alwaysApply: true
+---
+
+# TuBroki Apps — Project Context
+
+Herramientas **internas** del equipo TuBroki en un solo deploy: launcher + backend compartido + una app por carpeta. **No** es el producto de clientes (`tu-broki-app`).
+
+## Qué es / qué no es
+
+| Este repo (`tu-broki-apps`) | No confundir con |
+|---|---|
+| Apps internas: roadmap, wiki, diagramas, contabilidad | `tu-broki-app` (Next.js + Prisma + OTP clientes) |
+| Email OTP allowlist del equipo | Auth de propietarios / clientes |
+| Supabase proyecto `tubroki-apps` | DB de producción de la app cliente |
+| Estáticos en `public/` + Vercel Functions | App Router / admin-frontend |
+
+Si el pedido es features de propietarios, checkout, seguros, admin CRM → trabaja en `tu-broki-app`, no aquí.
+
+## Stack (fuente de verdad)
+
+- **Runtime:** Node `>=22`, ESM (`"type": "module"`)
+- **Package manager raíz:** **npm** (`package-lock.json`) — no pnpm
+- **Deploy:** Vercel (`vercel.json` → `buildCommand` + `outputDirectory: public`)
+- **API:** Vercel Functions en `api/**/*.js` (firma Web `Request` → `Response`)
+- **DB:** PostgreSQL (Supabase) vía `postgres` (`shared/db.js`), **transaction pooler :6543**, `prepare: false`
+- **Auth:** email OTP (Supabase Auth del mismo proyecto) + allowlist `APPS_ALLOWED_EMAILS` + cookie httpOnly `tb_sesion` HMAC (`shared/auth.js`)
+- **UI Vite:** React 19 + TypeScript + Vite 8 (`apps/roadmap|diagramas|contabilidad/frontend`)
+- **UI HTML:** `home/` (launcher) + `apps/wiki/web/` (vanilla JS)
+- **Tests:** `node --test` sobre `tests/**/*.test.mjs`
+
+## Carpetas
+
+```
+home/                 Launcher (/) y /acceso
+apps/<slug>/          app.json + server/ + (web/ | frontend/)
+api/<slug|auth>/      rutas HTTP delgadas
+shared/               auth, db, env, http
+supabase/migrations/  un schema por app
+scripts/              build.mjs, dev.mjs, seeds, smoke
+tests/                unitarias sin red (salvo smoke)
+public/               generado — NO versionar
+```
+
+## Idioma y tono
+
+- Código, comentarios, mensajes de error y UI en **español** (Colombia), directo.
+- Copy interno: claro para el equipo, sin marketing corporativo.
+
+## Antes de trabajo no trivial
+
+1. `README.md` raíz + `apps/<slug>/README.md` de la app tocada
+2. `supabase/README.md` si hay schema/migraciones
+3. Reglas en `.cursor/rules/` (backend, auth, app específica)

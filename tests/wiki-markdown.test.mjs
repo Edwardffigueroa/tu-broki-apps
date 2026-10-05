@@ -68,6 +68,13 @@ describe('wiki modelo', () => {
     const buf = Buffer.from('abc');
     assert.equal(validarAsset({ mimeType: 'image/png', buffer: buf }).ok, true);
     assert.equal(validarAsset({ mimeType: 'text/html', buffer: buf }).ok, true);
+    assert.equal(
+      validarAsset({
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        buffer: buf,
+      }).ok,
+      true,
+    );
     assert.equal(validarAsset({ mimeType: 'application/zip', buffer: buf }).ok, false);
     assert.equal(
       validarAsset({ mimeType: 'image/png', buffer: Buffer.alloc(MAX_ASSET + 1) }).ok,

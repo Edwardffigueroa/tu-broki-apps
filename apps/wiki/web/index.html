@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <title>TuBroki · Wiki</title>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem('wiki.theme') === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  } catch (_) {}
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -33,6 +42,7 @@
       <span class="search-trigger-label">Buscar en la wiki…</span>
       <kbd class="search-trigger-kbd">⌘K</kbd>
     </button>
+    <button class="btn btn-sm btn-ghost btn-theme" id="btn-theme" type="button" title="Cambiar tema" aria-label="Cambiar tema">☾</button>
     <button class="btn btn-sm" id="btn-import">Importar</button>
     <button class="btn btn-sm" id="btn-export">Exportar</button>
     <button class="btn btn-sm btn-primary" id="btn-guardar" title="Ctrl/Cmd + S">Guardar</button>

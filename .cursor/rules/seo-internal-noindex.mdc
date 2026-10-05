@@ -1,0 +1,23 @@
+---
+description: Apps internas siempre noindex — SEO bloqueante al revés (no rankear)
+alwaysApply: true
+---
+
+# SEO interno — siempre noindex
+
+`tu-broki-apps` es **privado del equipo**. Nada aquí debe rankear.
+
+## Obligatorio en todo HTML público del deploy
+
+- Meta: `<meta name="robots" content="noindex, nofollow">`
+- Header global (ya en `vercel.json`): `X-Robots-Tag: noindex, nofollow`
+
+Al crear páginas (`home/`, `apps/*/web/`, `frontend/index.html`, o HTML generado): **copiar el meta**. No añadir sitemap, canonical de marketing, ni JSON-LD de producto.
+
+## No aplicar reglas SEO de la landing
+
+Las skills/rules de `tu-broki-landing` (indexability, blog, calculadora) **no** aplican aquí. Si hay duda entre “¿esto debe rankear?” → la respuesta por defecto es **no**.
+
+## Si alguien pide hacer pública una app
+
+Parar y preguntar: dominio, auth, y si sale del monorepo. No “abrir” indexación sin decisión explícita.

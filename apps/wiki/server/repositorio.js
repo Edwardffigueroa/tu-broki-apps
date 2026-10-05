@@ -178,7 +178,8 @@ export async function listarBootstrap(sql) {
         : null,
     ),
   );
-  return { pages, contents };
+  const aliases = await listarAliases(sql);
+  return { pages, contents, aliases };
 }
 
 export async function siguientePosicion(sql, parentId) {
@@ -585,6 +586,7 @@ export async function softDelete(sql, id) {
     await tx`
       update wiki.page_links set target_page_id = null where target_page_id = ${id}
     `;
+    await tx`delete from wiki.page_aliases where page_id = ${id}`;
     // Los hijos suben al abuelo para no quedar colgando de una página borrada.
     await tx`
       update wiki.pages set parent_id = (
@@ -799,16 +801,66 @@ async function sincronizarEnlaces(sql, sourcePageId, content) {
   const keys = extractWikilinks(content);
   await sql`delete from wiki.page_links where source_page_id = ${sourcePageId}`;
   for (const key of keys) {
-    const [target] = await sql`
-      select id from wiki.pages where title_key = ${key} and deleted_at is null limit 1
-    `;
+    const targetId = await resolverTargetId(sql, key);
     await sql`
       insert into wiki.page_links (source_page_id, target_key, target_page_id)
-      values (${sourcePageId}, ${key}, ${target?.id || null})
+      values (${sourcePageId}, ${key}, ${targetId})
       on conflict (source_page_id, target_key) do update
         set target_page_id = excluded.target_page_id
     `;
   }
+}
+
+/** Resuelve title_key o alias → page id. */
+export async function resolverTargetId(sql, key) {
+  const [byTitle] = await sql`
+    select id from wiki.pages where title_key = ${key} and deleted_at is null limit 1
+  `;
+  if (byTitle) return byTitle.id;
+  const [byAlias] = await sql`
+    select a.page_id as id
+    from wiki.page_aliases a
+    join wiki.pages p on p.id = a.page_id
+    where a.alias_key = ${key} and p.deleted_at is null
+    limit 1
+  `;
+  return byAlias?.id || null;
+}
+
+export async function listarAliases(sql) {
+  const rows = await sql`
+    select a.alias_key, a.page_id
+    from wiki.page_aliases a
+    join wiki.pages p on p.id = a.page_id
+    where p.deleted_at is null
+  `;
+  return rows.map((r) => ({ alias_key: r.alias_key, page_id: r.page_id }));
+}
+
+export async function upsertAlias(sql, aliasKey, pageId) {
+  const key = normalizeTitle(aliasKey);
+  if (!key || !pageId) return null;
+  await sql`
+    insert into wiki.page_aliases (alias_key, page_id)
+    values (${key}, ${pageId})
+    on conflict (alias_key) do update set page_id = excluded.page_id
+  `;
+  await sql`
+    update wiki.page_links set target_page_id = ${pageId}
+    where target_key = ${key}
+  `;
+  return { alias_key: key, page_id: pageId };
+}
+
+export async function renombrarPaginaSimple(sql, id, nuevoTitulo, titleKey) {
+  await sql`
+    update wiki.pages set
+      title = ${nuevoTitulo},
+      title_key = ${titleKey},
+      updated_at = now()
+    where id = ${id} and deleted_at is null
+  `;
+  await resolverEnlacesPendientes(sql, titleKey, id);
 }
 
 async function sincronizarAssetsVersion(sql, versionId, content) {
@@ -829,6 +881,13 @@ async function resolverEnlacesPendientes(sql, titleKey, pageId) {
   await sql`
     update wiki.page_links set target_page_id = ${pageId}
     where target_key = ${titleKey} and (target_page_id is null or target_page_id <> ${pageId})
+  `;
+  await sql`
+    update wiki.page_links set target_page_id = ${pageId}
+    where target_key in (
+      select alias_key from wiki.page_aliases where page_id = ${pageId}
+    )
+    and (target_page_id is null or target_page_id <> ${pageId})
   `;
 }
 

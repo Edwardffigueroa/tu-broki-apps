@@ -1,0 +1,75 @@
+---
+description: Schemas por app, rol tubroki_apps, migraciones y RLS en Supabase
+globs: supabase/**/*
+alwaysApply: false
+---
+
+# Base de datos — Supabase tu-broki-apps
+
+Proyecto compartido **`tubroki-apps`** (ref en `supabase/README.md`). Schema `public` vacío a propósito. **Una app = un schema** (`roadmap`, `wiki`, `diagramas`, …).
+
+## Conexión
+
+- Rol backend: `tubroki_apps` (login, sin superuser, sin bypass RLS)
+- Solo transaction pooler `:6543` (Vercel sin IPv6; host directo `db.*.supabase.co` lo exige)
+- PostgREST: **ningún** schema de apps expuesto — acceso solo vía `shared/db.js`
+
+## Migraciones
+
+Archivos en `supabase/migrations/`:
+
+```
+AAAAMMDD_00NN_<tema>.sql
+```
+
+Orden numérico importa. Documentar en el SQL y actualizar `supabase/README.md` en el mismo cambio.
+
+Aplicación histórica: vía Supabase MCP / dashboard; nombres remotos pueden diferir del filename local — revisar README antes de `db push`.
+
+## Plantilla al crear schema de app
+
+```sql
+create schema if not exists <app>;
+
+-- tablas…
+alter table <app>.<tabla> enable row level security;
+revoke all on schema <app> from anon, authenticated;
+revoke all on all tables in schema <app> from anon, authenticated;
+
+grant usage on schema <app> to tubroki_apps;
+grant select, insert, update, delete on all tables in schema <app> to tubroki_apps;
+grant usage, select on all sequences in schema <app> to tubroki_apps;
+alter default privileges in schema <app>
+  grant select, insert, update, delete on tables to tubroki_apps;
+alter default privileges in schema <app>
+  grant usage, select on sequences to tubroki_apps;
+
+create policy backend_total on <app>.<tabla>
+  for all to tubroki_apps using (true) with check (true);
+```
+
+## Schemas actuales (resumen)
+
+| Schema | Tablas clave | Notas |
+|---|---|---|
+| `roadmap` | `tableros`, `tareas`, `respaldos` | optimistic locking `tableros.version`; subtareas 1 nivel |
+| `wiki` | `pages`, `page_versions`, `page_links`, `assets`, … | versiones inmutables; FTS español; trigger anti-ciclos; `kind=file` |
+| `contabilidad` | `movimientos`, `metas`, `config` | libro diario + P&G + catálogo |
+
+Wiki también necesita grants a `extensions` (unaccent, digest) — ver migraciones `0004`.
+
+## Musts
+
+- Consultas siempre `schema.tabla`
+- Contraseña del rol **nunca** en SQL versionado (placeholder al crear; valor real solo en `DATABASE_URL`)
+- No abrir schemas a `anon`/`authenticated`
+- No usar Prisma / migraciones de `tu-broki-app` aquí
+- Cambios destructivos: pedir confirmación explícita (hay datos reales del equipo)
+
+## Rotar password del rol
+
+```sql
+alter role tubroki_apps with password '<nueva>';
+```
+
+Actualizar `DATABASE_URL` en Vercel y `.env.local`.

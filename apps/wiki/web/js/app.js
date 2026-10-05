@@ -11,6 +11,7 @@ const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 const state = {
   pages: [],
   trash: [],
+  aliases: [],
   current: null,
   draftRevision: 0,
   dirty: false,
@@ -30,6 +31,56 @@ let idByTitleKey = new Map();
 let lastFocusRevalidate = 0;
 /** Evita que una revalidación vieja pise una navegación más reciente. */
 let abrirSeq = 0;
+
+const THEME_KEY = 'wiki.theme';
+
+/** Solo oscuro si el usuario lo eligió; por defecto siempre claro. */
+function resolvedTheme() {
+  return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+}
+
+function syncThemeButton() {
+  const btn = $('#btn-theme');
+  if (!btn) return;
+  const dark = resolvedTheme() === 'dark';
+  btn.textContent = dark ? '☀' : '☾';
+  btn.title = dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro';
+  btn.setAttribute('aria-label', btn.title);
+}
+
+function applyMermaidTheme(theme) {
+  if (!window.mermaid) return;
+  window.mermaid.initialize({
+    startOnLoad: false,
+    theme: theme === 'dark' ? 'dark' : 'neutral',
+    securityLevel: 'strict',
+    fontFamily: 'Manrope, -apple-system, BlinkMacSystemFont, sans-serif',
+  });
+}
+
+function applyTheme(theme) {
+  const next = theme === 'dark' ? 'dark' : 'light';
+  if (next === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    try {
+      localStorage.setItem(THEME_KEY, 'dark');
+    } catch (_) {}
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    try {
+      localStorage.removeItem(THEME_KEY);
+    } catch (_) {}
+  }
+  syncThemeButton();
+  applyMermaidTheme(next);
+  if (state.mode === 'preview' && state.current?.kind !== 'file') {
+    void renderPreview();
+  }
+}
+
+function toggleTheme() {
+  applyTheme(resolvedTheme() === 'dark' ? 'light' : 'dark');
+}
 
 function setStatus(kind, text) {
   const el = $('#save-ind');
@@ -67,6 +118,9 @@ function normalizeKey(t) {
 function rebuildIndexes() {
   titleById = new Map(state.pages.map((p) => [p.id, p.title]));
   idByTitleKey = new Map(state.pages.map((p) => [p.title_key || normalizeKey(p.title), p.id]));
+  for (const a of state.aliases || []) {
+    if (a?.alias_key && a?.page_id) idByTitleKey.set(a.alias_key, a.page_id);
+  }
 }
 
 function aplicarArbol(pages) {
@@ -1785,6 +1839,7 @@ function wireEvents() {
   $('#btn-crear-primera')?.addEventListener('click', () => crearPagina(null));
   $('#btn-importar-vacio')?.addEventListener('click', () => $('#file-import').click());
   $('#btn-buscar')?.addEventListener('click', openCommandPalette);
+  $('#btn-theme')?.addEventListener('click', toggleTheme);
   $('#btn-export')?.addEventListener('click', exportarZip);
   $('#btn-import')?.addEventListener('click', () => $('#file-import').click());
   $('#btn-insertar-imagen')?.addEventListener('click', () => {
@@ -2294,6 +2349,7 @@ async function bootstrapAlInicio() {
   try {
     const boot = await api.bootstrap();
     cache.setPages(boot.contents || []);
+    state.aliases = boot.aliases || [];
     aplicarArbol(boot.pages || []);
     return true;
   } catch (e) {
@@ -2348,12 +2404,7 @@ async function init() {
   }
 
   if (window.mermaid) {
-    window.mermaid.initialize({
-      startOnLoad: false,
-      theme: 'neutral',
-      securityLevel: 'strict',
-      fontFamily: 'Manrope, -apple-system, BlinkMacSystemFont, sans-serif',
-    });
+    applyMermaidTheme(resolvedTheme());
   }
 
   if (window.marked) {
@@ -2370,6 +2421,7 @@ async function init() {
     });
   }
 
+  syncThemeButton();
   wireEvents();
   window.addEventListener('focus', onWindowFocus);
   document.addEventListener('visibilitychange', () => {

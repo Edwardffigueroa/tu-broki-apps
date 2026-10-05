@@ -4,7 +4,13 @@
  * (las carga `scripts/dev.mjs`).
  */
 
-const REQUERIDAS = ['DATABASE_URL', 'APPS_PASSWORD', 'SESSION_SECRET'];
+const REQUERIDAS = [
+  'DATABASE_URL',
+  'SESSION_SECRET',
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
+  'APPS_ALLOWED_EMAILS',
+];
 
 export function env(nombre, porDefecto) {
   const v = process.env[nombre];

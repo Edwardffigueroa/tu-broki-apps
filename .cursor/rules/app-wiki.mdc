@@ -1,0 +1,56 @@
+---
+description: Dominio Wiki — páginas, drafts, versiones, FTS, assets, Obsidian
+globs: apps/wiki/**/*,api/wiki/**/*,tests/wiki*.mjs,scripts/*wiki*
+alwaysApply: false
+---
+
+# App · Wiki
+
+Base de conocimiento interna (Markdown, versiones, wikilinks, import Obsidian). Autoría fija: **TuBroki**.
+
+## Capas
+
+| Pieza | Path |
+|---|---|
+| UI | `apps/wiki/web/` |
+| Server | `server/{modelo,markdown,repositorio,servicio}.js` |
+| API | `api/wiki/*.js` (bootstrap, pages, page, draft, versions, …) |
+| Schema | `wiki` |
+
+## Flujos clave
+
+1. **Bootstrap** `GET /api/wiki/bootstrap` — árbol + contenidos (calienta SWR).
+2. **Draft** `PUT /api/wiki/draft?id=` — autoguardado; no crea versión.
+3. **Guardar** `POST /api/wiki/versions?id=` — `wiki.save_page_version` (inmutable).
+4. **Papelera** DELETE page → soft delete; hijos suben al abuelo; links entrantes quedan rotos.
+5. **Árbol sin ciclos** — trigger DB; mover bajo descendiente → 409.
+6. **Títulos únicos** entre activas (`title_key`); sufijos ` (2)` al crear/importar.
+7. **Documentos** `kind=file` + `asset_id` vía `POST/PUT /api/wiki/documents`.
+
+## Límites (no subir sin revisar Vercel)
+
+- Markdown máx ~1 MB (`MAX_CONTENT`)
+- Asset máx **3 MB** (base64 ≈ +33% → cerca del tope ~4,5 MB de function body)
+- MIME: jpeg/png/gif/webp/pdf/html
+
+## Markdown / wikilinks
+
+- Lógica en `server/markdown.js` (+ tests `tests/wiki-markdown.test.mjs`)
+- `normalizeTitle` / `title_key`: minúsculas, sin tildes
+- Referencias asset: `asset:UUID`
+- Frontmatter Obsidian en import/export
+
+## API surface (no inventar rutas paralelas)
+
+Ver tabla completa en `apps/wiki/README.md`. Nuevos endpoints: archivo en `api/wiki/`, método en `servicio.js`, entrada en README.
+
+## Scripts
+
+```bash
+npm test                 # unitarias
+npm run smoke:wiki       # e2e vs dev + DB (prefijo ZZ-smoke- → papelera)
+npm run seed:wiki
+npm run seed:wiki-docs
+```
+
+Smoke y seeds tocan DB real del proyecto `tubroki-apps` — no correr en automatismos destructivos sin aviso.

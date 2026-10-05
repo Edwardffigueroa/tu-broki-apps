@@ -1,0 +1,57 @@
+---
+description: Dominio Roadmap — tablero completo, versiones, CSV, vistas React
+globs: apps/roadmap/**/*,api/roadmap/**/*,tests/roadmap*.mjs
+alwaysApply: false
+---
+
+# App · Roadmap
+
+Tablero único del equipo (`tablero_id = principal`) con tres vistas: **Tabla**, **Cronograma**, **Kanban**.
+
+## Capas
+
+| Pieza | Path |
+|---|---|
+| API | `api/roadmap/tareas.js` (GET/PUT), `exportar.js` (GET) |
+| Servicio | `apps/roadmap/server/servicio.js` |
+| Modelo | `modelo.js` — `validateTareas`, enums |
+| Repo | `repositorio.js` — replace-all + `version` |
+| CSV | `csv.js` — RFC 4180 + BOM (solo export) |
+| UI | `frontend/` → `public/roadmap/` |
+
+## Contrato API
+
+```
+GET  /api/roadmap/tareas   → { nombre, version, tareas[] }
+PUT  /api/roadmap/tareas   { tareas[], version } → { ok, version }
+                           400 validación | 409 conflicto de versión
+GET  /api/roadmap/exportar → text/csv descarga
+```
+
+## Modelo de tarea
+
+Campos (`HEADERS` en modelo):  
+`id, padre_id, tipo(tarea|hito), titulo, descripcion, grupo, estado, prioridad, responsable, estimacion_dias, fecha_inicio, fecha_fin, orden, creado, actualizado`
+
+- Estados: `Por hacer | En curso | Bloqueada | Hecha`
+- Prioridades: `Alta | Media | Baja`
+- Subtareas: **un solo nivel** (`padre_id` no puede apuntar a otra subtarea)
+- Fechas: `YYYY-MM-DD`
+
+## Persistencia
+
+1. Cliente edita en memoria y hace PUT del **tablero completo** (debounce ~400 ms).
+2. Servidor valida → `SELECT … FOR UPDATE` → si `version` coincide, borra/inserta en transacción e incrementa versión.
+3. Antes de pisar: respaldo CSV del día (máx 14) en `roadmap.respaldos`.
+4. UI ante 409: avisar y forzar recarga (no pisar en silencio).
+
+## Frontend
+
+- Estado: `RoadmapStore.tsx` (reducer).
+- API: `frontend/src/api/tareas.ts` + cache local de emergencia.
+- Atajos: `N` `/` `Esc` `1 2 3` (documentados en README).
+- No introducir sync parcial por tarea sin rediseñar locking y respaldos.
+
+## Tests
+
+`tests/roadmap-csv.test.mjs` — serialización CSV. Ampliar tests de `validateTareas` si se cambian reglas.

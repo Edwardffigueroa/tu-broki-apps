@@ -9,7 +9,10 @@
     { "source": "/roadmap/", "destination": "/roadmap/index.html" },
     { "source": "/diagramas", "destination": "/diagramas/index.html" },
     { "source": "/diagramas/", "destination": "/diagramas/index.html" },
-    { "source": "/diagramas/:path*", "destination": "/diagramas/index.html" }
+    { "source": "/diagramas/:path*", "destination": "/diagramas/index.html" },
+    { "source": "/contabilidad", "destination": "/contabilidad/index.html" },
+    { "source": "/contabilidad/", "destination": "/contabilidad/index.html" },
+    { "source": "/contabilidad/:path*", "destination": "/contabilidad/index.html" }
   ],
   "headers": [
     {

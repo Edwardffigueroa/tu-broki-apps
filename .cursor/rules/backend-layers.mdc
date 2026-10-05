@@ -1,0 +1,79 @@
+---
+description: Capas backend api → servicio → repositorio/modelo, http helpers y SQL
+globs: api/**/*,apps/*/server/**/*,shared/**/*
+alwaysApply: false
+---
+
+# Backend — capas y convenciones
+
+## Flujo de dependencias
+
+```
+api/<recurso>.js     → thin HTTP (método exportado GET|POST|PUT|PATCH|DELETE)
+       ↓
+apps/<slug>/server/servicio.js   → casos de uso, ErrorHttp, orquesta
+       ↓
+apps/<slug>/server/modelo.js     → validación/normalización pura (sin I/O)
+apps/<slug>/server/repositorio.js → SQL con schema explícito (`roadmap.tareas`)
+       ↓
+shared/db.js → getSql()  |  shared/http.js | shared/auth.js | shared/env.js
+```
+
+**API nunca** habla con SQL ni importa `postgres` directamente.  
+**Repositorio** no decide status HTTP.  
+**Servicio** traduce fallos de negocio a `ErrorHttp(status, mensaje, extra?)`.
+
+## Handler canónico
+
+```js
+import { json, leerJson, manejar } from '../../shared/http.js';
+import { exigirSesion } from '../../shared/auth.js';
+import { algunaAccion } from '../../apps/<slug>/server/servicio.js';
+
+export const GET = manejar(async (request) => {
+  exigirSesion(request);
+  const url = new URL(request.url);
+  return json(200, await algunaAccion(url.searchParams.get('id')));
+});
+```
+
+- Envolver siempre con `manejar()` (mapea `ErrorHttp` → JSON; resto → 500 seguro).
+- Exportar métodos HTTP por nombre (`GET`, `POST`, …). El dev server y Vercel usan esa firma.
+- Ruta archivo = URL: `api/wiki/page.js` → `/api/wiki/page`.
+
+## Errores y validación
+
+| Situación | Status | Cómo |
+|---|---|---|
+| Sin sesión | 401 | `exigirSesion` |
+| Input inválido | 400 | `modelo` → `ErrorHttp` |
+| No encontrado | 404 | servicio |
+| Conflicto (versión/único) | 409 | servicio (`23505`, versión) |
+| Bug/infra | 500 | `manejar` (log server-side) |
+
+Validación en `modelo.js` con forma `{ ok: true, … } | { ok: false, error }`. No lanzar desde el modelo.
+
+## SQL / postgres.js
+
+```js
+import { getSql } from '../../../shared/db.js';
+const sql = getSql();
+await sql`select … from wiki.pages where id = ${id}`;
+await sql.begin(async (tx) => { /* … */ });
+```
+
+- Siempre **schema calificado**: `wiki.pages`, `roadmap.tareas`, `diagramas.diagramas`.
+- Tagged templates (anti injection). No concatenar SQL con input de usuario.
+- Pooler: `prepare: false`, `ssl: 'require'`, singleton en `globalThis` (serverless warm).
+- Scripts/tests: `cerrarSql()` al terminar.
+
+## Shared
+
+| Módulo | Rol |
+|---|---|
+| `env.js` | `env(nombre)` / `verificarEnv()` — falla claro si falta var |
+| `http.js` | `ErrorHttp`, `json`, `leerJson`, `manejar` |
+| `auth.js` | cookie, token, `exigirSesion` |
+| `db.js` | `getSql`, `cerrarSql` |
+
+No inventar otro cliente HTTP ni otro ORM. Mantener ESM `.js` en backend (no TypeScript en `api/` / `server/` hoy).

@@ -1,0 +1,273 @@
+{
+  "title": "Verificación de inquilinos (Autoservicio)",
+  "lanes": [
+    { "id": "usuario", "name": "Usuario" },
+    { "id": "landing", "name": "Landing" },
+    { "id": "staff", "name": "Staff Tubroki" },
+    { "id": "app", "name": "tu-broki-app" },
+    { "id": "wompi", "name": "Wompi" },
+    { "id": "zapsign", "name": "ZapSign" }
+  ],
+  "nodes": [
+    {
+      "id": "u1",
+      "lane": "usuario",
+      "type": "start",
+      "label": "INICIO: Entra a la página para verificar un inquilino",
+      "step": 1
+    },
+    {
+      "id": "l1",
+      "lane": "landing",
+      "type": "task",
+      "label": "Muestra el formulario de verificación al usuario",
+      "step": 2
+    },
+    {
+      "id": "u2",
+      "lane": "usuario",
+      "type": "task",
+      "label": "Elige: ¿me valido a mí o a otra persona? + tipo de estudio + llena datos",
+      "step": 3,
+      "note": "Tipos: antecedentes, crédito o combo. Cambia person / credit_person_co / ambos carriles ZapSign."
+    },
+    {
+      "id": "l2",
+      "lane": "landing",
+      "type": "task",
+      "label": "Envía los datos a Tubroki para crear la orden",
+      "step": 4
+    },
+    {
+      "id": "a1",
+      "lane": "app",
+      "type": "task",
+      "label": "Crea usuario, orden, pago pendiente y registro del estudio",
+      "step": 5
+    },
+    {
+      "id": "a2",
+      "lane": "app",
+      "type": "decision",
+      "label": "¿El pago va después de autorizar?",
+      "step": 6
+    },
+    {
+      "id": "a3",
+      "lane": "app",
+      "type": "task",
+      "label": "Envía correo con link para que la persona autorice el estudio",
+      "step": 7
+    },
+    {
+      "id": "u3",
+      "lane": "usuario",
+      "type": "task",
+      "label": "Abre el link del correo y da consentimiento para el estudio",
+      "step": 8
+    },
+    {
+      "id": "a4",
+      "lane": "app",
+      "type": "task",
+      "label": "Deja listo el link de pago para el usuario",
+      "step": 9
+    },
+    {
+      "id": "l3",
+      "lane": "landing",
+      "type": "task",
+      "label": "Lleva al usuario a pagar o a autorizar, según el caso",
+      "step": 10
+    },
+    {
+      "id": "u4",
+      "lane": "usuario",
+      "type": "task",
+      "label": "Revisa el monto y paga en Wompi",
+      "step": 11
+    },
+    {
+      "id": "w1",
+      "lane": "wompi",
+      "type": "task",
+      "label": "Abre el checkout y cobra el dinero",
+      "step": 12
+    },
+    {
+      "id": "w2",
+      "lane": "wompi",
+      "type": "task",
+      "label": "Pago aprobado: avisa a Tubroki por webhook",
+      "step": 13
+    },
+    {
+      "id": "a5",
+      "lane": "app",
+      "type": "task",
+      "label": "Al confirmar pago: activa la orden y pone el estudio en proceso",
+      "step": 14
+    },
+    {
+      "id": "l4",
+      "lane": "landing",
+      "type": "task",
+      "label": "Página de resultado: confirma el pago y hace seguimiento",
+      "step": 15
+    },
+    {
+      "id": "u5",
+      "lane": "usuario",
+      "type": "task",
+      "label": "Ve confirmación de pago y mensaje: el reporte llega por correo (<20 min)",
+      "step": 16
+    },
+    {
+      "id": "a6",
+      "lane": "app",
+      "type": "task",
+      "label": "Dispara estudio automático: antecedentes, crédito o combo (mismo flujo; solo cambia el tipo ZapSign)",
+      "step": 17
+    },
+    {
+      "id": "z1",
+      "lane": "zapsign",
+      "type": "task",
+      "label": "Consulta en ZapSign (person y/o crédito según el producto elegido)",
+      "step": 18
+    },
+    {
+      "id": "z2",
+      "lane": "zapsign",
+      "type": "task",
+      "label": "Devuelve score y detalle; Tubroki arma el PDF",
+      "step": 19
+    },
+    {
+      "id": "a7",
+      "lane": "app",
+      "type": "task",
+      "label": "Genera PDF Tubroki y lo envía por correo (cualquier tipo de estudio)",
+      "step": 20
+    },
+    {
+      "id": "u6",
+      "lane": "usuario",
+      "type": "end",
+      "label": "FIN: Recibe el PDF del estudio en el correo",
+      "step": 21
+    },
+    {
+      "id": "a8",
+      "lane": "app",
+      "type": "task",
+      "label": "EXCEPCIÓN: el automático falla → avisa a soporte",
+      "step": 18,
+      "note": "Camino de excepción: solo si el pipeline automático falla."
+    },
+    {
+      "id": "s1",
+      "lane": "staff",
+      "type": "task",
+      "label": "Solo si falla: recibe alerta por correo",
+      "step": 19
+    },
+    {
+      "id": "s2",
+      "lane": "staff",
+      "type": "task",
+      "label": "Entra al admin y reanuda el estudio (Continuar)",
+      "step": 20
+    },
+    {
+      "id": "s3",
+      "lane": "staff",
+      "type": "end",
+      "label": "FIN excepción: caso recuperado o handoff",
+      "step": 21
+    }
+  ],
+  "edges": [
+    { "from": "u1", "to": "l1", "fromPort": "bottom", "toPort": "left" },
+    { "from": "l1", "to": "u2", "fromPort": "top", "toPort": "left" },
+    { "from": "u2", "to": "l2", "fromPort": "right", "toPort": "left" },
+    { "from": "l2", "to": "a1", "fromPort": "bottom", "toPort": "left" },
+    { "from": "a1", "to": "a2", "fromPort": "right", "toPort": "left" },
+    {
+      "from": "a2",
+      "to": "a3",
+      "label": "Sí: primero autoriza",
+      "fromPort": "right",
+      "toPort": "left"
+    },
+    { "from": "a3", "to": "u3", "fromPort": "top", "toPort": "bottom" },
+    { "from": "u3", "to": "a4", "fromPort": "right", "toPort": "bottom" },
+    {
+      "from": "a2",
+      "to": "a4",
+      "label": "No: paga ya",
+      "fromPort": "top",
+      "toPort": "left"
+    },
+    { "from": "a4", "to": "l3", "fromPort": "top", "toPort": "bottom" },
+    { "from": "l3", "to": "u4", "fromPort": "top", "toPort": "left" },
+    { "from": "u4", "to": "w1", "fromPort": "bottom", "toPort": "top" },
+    { "from": "w1", "to": "w2", "fromPort": "right", "toPort": "left" },
+    { "from": "w2", "to": "a5", "fromPort": "top", "toPort": "bottom" },
+    { "from": "a5", "to": "l4", "fromPort": "top", "toPort": "bottom" },
+    { "from": "l4", "to": "u5", "fromPort": "top", "toPort": "left" },
+    { "from": "a5", "to": "a6", "fromPort": "right", "toPort": "left" },
+    {
+      "from": "a6",
+      "to": "z1",
+      "label": "siempre automático",
+      "fromPort": "bottom",
+      "toPort": "top"
+    },
+    {
+      "from": "a6",
+      "to": "a8",
+      "label": "si falla",
+      "fromPort": "right",
+      "toPort": "left"
+    },
+    { "from": "a8", "to": "s1", "fromPort": "top", "toPort": "bottom" },
+    { "from": "s1", "to": "s2", "fromPort": "right", "toPort": "left" },
+    { "from": "s2", "to": "s3", "fromPort": "right", "toPort": "left" },
+    {
+      "from": "s2",
+      "to": "z1",
+      "label": "reanuda consulta",
+      "fromPort": "bottom",
+      "toPort": "left"
+    },
+    { "from": "z1", "to": "z2", "fromPort": "right", "toPort": "left" },
+    { "from": "z2", "to": "a7", "fromPort": "top", "toPort": "bottom" },
+    {
+      "from": "a7",
+      "to": "u6",
+      "label": "envía reporte",
+      "fromPort": "top",
+      "toPort": "bottom"
+    },
+    {
+      "from": "u5",
+      "to": "u6",
+      "label": "espera el correo",
+      "fromPort": "right",
+      "toPort": "left"
+    }
+  ],
+  "docs": [
+    {
+      "id": "alcance",
+      "title": "Alcance (copiado de Miro)",
+      "body": "Los 3 tipos de estudio (antecedentes, crédito, combo) son automáticos vía ZapSign. Staff solo interviene si el pipeline falla. Lo que cambia por tipo: `person` / `credit_person_co` / ambos carriles.\n\n**Origen Miro:** Swimlane clásico — Verificación inquilinos (`frame_id` `3458764685219274261`).\n\n**Carriles:** Usuario · Landing · Staff Tubroki · tu-broki-app · Wompi · ZapSign.\n\n**Caminos:**\n1. Feliz: formulario → orden → (autoriza o paga ya) → Wompi → estudio automático ZapSign → PDF por correo.\n2. Excepción: si el automático falla → alerta staff → Continuar en admin → reanuda consulta ZapSign → PDF."
+    },
+    {
+      "id": "interacciones",
+      "title": "Mapa de interacciones",
+      "body": "```mermaid\nflowchart LR\n  u1[INICIO usuario] --> l1[Landing formulario]\n  l1 --> u2[Elige tipo + datos]\n  u2 --> l2[Envía a Tubroki]\n  l2 --> a1[Crea orden]\n  a1 --> a2{¿Pago después de autorizar?}\n  a2 -->|Sí: primero autoriza| a3[Correo autorización]\n  a3 --> u3[Usuario autoriza]\n  u3 --> a4[Link de pago]\n  a2 -->|No: paga ya| a4\n  a4 --> l3[Landing a pagar]\n  l3 --> u4[Paga en Wompi]\n  u4 --> w1[Checkout]\n  w1 --> w2[Webhook]\n  w2 --> a5[Activa orden]\n  a5 --> l4[Página resultado]\n  l4 --> u5[Confirmación]\n  a5 --> a6[Dispara estudio]\n  a6 -->|siempre automático| z1[ZapSign consulta]\n  a6 -->|si falla| a8[Excepción]\n  a8 --> s1[Alerta staff]\n  s1 --> s2[Continuar admin]\n  s2 --> s3[FIN excepción]\n  s2 -->|reanuda| z1\n  z1 --> z2[Score]\n  z2 --> a7[PDF + correo]\n  a7 -->|envía reporte| u6[FIN PDF]\n  u5 -.->|espera el correo| u6\n```"
+    }
+  ]
+}

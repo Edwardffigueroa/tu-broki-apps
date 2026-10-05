@@ -1,0 +1,58 @@
+---
+description: Dominio Diagramas — swimlanes, JSON IA, biblioteca, core carriles
+globs: apps/diagramas/**/*,api/diagramas/**/*,tests/diagramas*.mjs
+alwaysApply: false
+---
+
+# App · Diagramas
+
+Biblioteca de diagramas internos. V1: **swimlanes / carriles** con JSON pensado para pegar en IA.
+
+## Capas
+
+| Pieza | Path |
+|---|---|
+| UI | `frontend/` — Library + Editor |
+| Core (puro) | `frontend/src/core/carriles/` — schema, normalize, layout, route, narrative, aiPrompt |
+| Server | `server/{modelo,repositorio,servicio}.js` |
+| API | `api/diagramas/{diagramas,diagrama,duplicar,grupos,etiquetas}.js` |
+| Schema | `diagramas` |
+
+## Contrato del modelo (JSON)
+
+```json
+{
+  "title": "…",
+  "lanes": [{ "id": "tubroki", "name": "TuBroki" }],
+  "nodes": [{ "id": "t1", "lane": "tubroki", "type": "task", "label": "…", "step": 3, "note": "…" }],
+  "edges": [{ "from": "d1", "to": "t2", "label": "No", "fromPort": "bottom", "toPort": "bottom" }],
+  "docs": [{ "id": "lectura", "title": "…", "body": "Markdown + ```mermaid" }]
+}
+```
+
+- `type`: `start | task | decision | document | end` (+ alias ES en normalizers)
+- `step` = columna; geometría **no** se persiste (layout en cliente)
+- `fromPort`/`toPort`: `top|right|bottom|left` opcionales
+- `docs`: cards del **proceso** (no de un nodo); Markdown GFM sanitizado (`dompurify`)
+
+Normalización canónica: `server/modelo.js` (`normalizeModelo`) **y** espejo en `core/carriles/normalize.ts`. Si cambias el contrato, actualiza **ambos** + tests.
+
+## Persistencia
+
+- `diagramas.diagramas.modelo` jsonb + `revision` (conflictos 409)
+- Metadatos: título, grupo, etiquetas N:M, archivado (`archived_at`)
+- Duplicar: endpoint dedicado
+
+## UX del editor
+
+- Biblioteca `/diagramas/` · Editor `/diagramas/:id`
+- Acciones: Copiar JSON (contrato) · Copiar texto (narrativa para IA)
+- Tokens en `styles/tokens.css`; canvas SVG en `CanvasSvg.tsx`
+- Mantener motor de layout/rutas en `core/` testeable sin DOM
+
+## Tests
+
+- `tests/diagramas-modelo.test.mjs` — validación server
+- `tests/diagramas-carriles.test.mjs` — core cliente
+
+Al añadir tipo de diagrama nuevo: no reutilizar `swimlane` a la fuerza; extender `TIPOS` + migración check + UI types.

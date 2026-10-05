@@ -21,7 +21,7 @@ const APPS = path.join(RAIZ, 'apps');
 const PUBLIC = path.join(RAIZ, 'public');
 
 /** Apps cuyo estático lo construye Vite (no copiar web/). */
-const VITE_APPS = new Set(['roadmap', 'diagramas']);
+const VITE_APPS = new Set(['roadmap', 'diagramas', 'contabilidad']);
 
 export function build({ silencioso = false, skipVite = false } = {}) {
   fs.rmSync(PUBLIC, { recursive: true, force: true });
