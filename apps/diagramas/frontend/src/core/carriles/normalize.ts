@@ -1,4 +1,17 @@
-import { ALIAS, PORT_ALIAS, TYPES, slug, type DiagramModel, type DocCard, type NodeType, type Port } from './schema'
+import {
+  ALIAS,
+  DEFAULT_LANE_ROWS,
+  MAX_LANE_ROWS,
+  MIN_LANE_ROWS,
+  PORT_ALIAS,
+  TYPES,
+  clamp,
+  slug,
+  type DiagramModel,
+  type DocCard,
+  type NodeType,
+  type Port,
+} from './schema'
 
 function parsePort(v: unknown): Port | undefined {
   if (v == null) return undefined
@@ -75,7 +88,13 @@ export function normalize(obj: unknown): NormalizeResult {
     const id = String(lo.id != null ? lo.id : slug(name))
     if (laneIds[id]) throw new Error(`Carril repetido: "${id}".`)
     laneIds[id] = 1
-    m.lanes.push({ id, name })
+    const lane: DiagramModel['lanes'][number] = { id, name }
+    if (lo.rows != null && Number.isFinite(+lo.rows)) {
+      const rows = clamp(Math.round(+lo.rows), MIN_LANE_ROWS, MAX_LANE_ROWS)
+      // Solo persistimos si no es el default (2), para no ensuciar el JSON.
+      if (rows !== DEFAULT_LANE_ROWS) lane.rows = rows
+    }
+    m.lanes.push(lane)
   })
 
   function laneBy(k: unknown): string | null {
@@ -116,7 +135,13 @@ export function normalize(obj: unknown): NormalizeResult {
     }
     const st = n.step != null ? n.step : null
     if (st != null && Number.isFinite(+st) && +st >= 1) node.step = Math.round(+st)
+    const rw = n.row != null ? n.row : null
+    if (rw != null && Number.isFinite(+rw) && +rw >= 1) node.row = Math.round(+rw)
     if (n.note) node.note = String(n.note)
+    const width = n.w ?? n.width
+    const height = n.h ?? n.height
+    if (width != null && Number.isFinite(+width) && +width >= 24) node.w = Math.round(+width)
+    if (height != null && Number.isFinite(+height) && +height >= 24) node.h = Math.round(+height)
     nodeIds[id] = 1
     m.nodes.push(node)
   })

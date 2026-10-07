@@ -84,7 +84,12 @@ export function normalizeModelo(obj) {
     const id = String(l.id != null ? l.id : slug(name));
     if (laneIds[id]) return { ok: false, error: `Carril repetido: "${id}".` };
     laneIds[id] = 1;
-    m.lanes.push({ id, name });
+    const lane = { id, name };
+    if (l.rows != null && Number.isFinite(+l.rows)) {
+      const rows = Math.min(8, Math.max(1, Math.round(+l.rows)));
+      if (rows !== 2) lane.rows = rows;
+    }
+    m.lanes.push(lane);
   }
 
   function laneBy(k) {
@@ -127,7 +132,12 @@ export function normalizeModelo(obj) {
     const node = { id, lane, type, label: label || id };
     const st = n.step != null ? n.step : null;
     if (st != null && Number.isFinite(+st) && +st >= 1) node.step = Math.round(+st);
+    if (n.row != null && Number.isFinite(+n.row) && +n.row >= 1) node.row = Math.round(+n.row);
     if (n.note) node.note = String(n.note);
+    const width = n.w ?? n.width;
+    const height = n.h ?? n.height;
+    if (width != null && Number.isFinite(+width) && +width >= 24) node.w = Math.round(+width);
+    if (height != null && Number.isFinite(+height) && +height >= 24) node.h = Math.round(+height);
     nodeIds[id] = 1;
     m.nodes.push(node);
   }

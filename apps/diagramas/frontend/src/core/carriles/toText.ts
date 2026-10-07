@@ -18,7 +18,11 @@ export function toText(m: DiagramModel): string {
     '{\n  "title": ' +
     j(m.title) +
     ',\n  "lanes": ' +
-    arr(m.lanes, (l) => line({ id: l.id, name: l.name })) +
+    arr(m.lanes, (l) => {
+      const o: Record<string, unknown> = { id: l.id, name: l.name }
+      if (l.rows != null) o.rows = l.rows
+      return line(o)
+    }) +
     ',\n  "nodes": ' +
     arr(m.nodes, (n) => {
       const o: Record<string, unknown> = {
@@ -28,7 +32,10 @@ export function toText(m: DiagramModel): string {
         label: n.label,
       }
       if (n.step != null) o.step = n.step
+      if (n.row != null) o.row = n.row
       if (n.note) o.note = n.note
+      if (n.w != null) o.w = n.w
+      if (n.h != null) o.h = n.h
       return line(o)
     }) +
     ',\n  "edges": ' +

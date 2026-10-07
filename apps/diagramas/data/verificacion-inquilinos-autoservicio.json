@@ -1,273 +1,416 @@
 {
-  "title": "Verificación de inquilinos (Autoservicio)",
+  "docs": [
+    {
+      "id": "alcance",
+      "body": "Los 3 tipos de estudio (antecedentes, crédito, combo) son automáticos vía ZapSign. Staff solo interviene si el pipeline falla. Lo que cambia por tipo: `person` / `credit_person_co` / ambos carriles.\n\n**Origen Miro:** Swimlane clásico — Verificación inquilinos (`frame_id` `3458764685219274261`).\n\n**Carriles:** Usuario · Landing · Staff Tubroki · tu-broki-app · Wompi · ZapSign.\n\n**Caminos:**\n1. Feliz: formulario → orden → (autoriza o paga ya) → Wompi → estudio automático ZapSign → PDF por correo.\n2. Excepción: si el automático falla → alerta staff → Continuar en admin → reanuda consulta ZapSign → PDF.",
+      "title": "Alcance (copiado de Miro)"
+    },
+    {
+      "id": "interacciones",
+      "body": "```mermaid\nflowchart LR\n  u1[INICIO usuario] --> l1[Landing formulario]\n  l1 --> u2[Elige tipo + datos]\n  u2 --> l2[Envía a Tubroki]\n  l2 --> a1[Crea orden]\n  a1 --> a2{¿Pago después de autorizar?}\n  a2 -->|Sí: primero autoriza| a3[Correo autorización]\n  a3 --> u3[Usuario autoriza]\n  u3 --> a4[Link de pago]\n  a2 -->|No: paga ya| a4\n  a4 --> l3[Landing a pagar]\n  l3 --> u4[Paga en Wompi]\n  u4 --> w1[Checkout]\n  w1 --> w2[Webhook]\n  w2 --> a5[Activa orden]\n  a5 --> l4[Página resultado]\n  l4 --> u5[Confirmación]\n  a5 --> a6[Dispara estudio]\n  a6 -->|siempre automático| z1[ZapSign consulta]\n  a6 -->|si falla| a8[Excepción]\n  a8 --> s1[Alerta staff]\n  s1 --> s2[Continuar admin]\n  s2 --> s3[FIN excepción]\n  s2 -->|reanuda| z1\n  z1 --> z2[Score]\n  z2 --> a7[PDF + correo]\n  a7 -->|envía reporte| u6[FIN PDF]\n  u5 -.->|espera el correo| u6\n```",
+      "title": "Mapa de interacciones"
+    }
+  ],
+  "edges": [
+    {
+      "to": "l1",
+      "from": "u1",
+      "toPort": "top",
+      "fromPort": "bottom"
+    },
+    {
+      "to": "u2",
+      "from": "l1",
+      "toPort": "left",
+      "fromPort": "right"
+    },
+    {
+      "to": "l2",
+      "from": "u2",
+      "toPort": "top",
+      "fromPort": "bottom"
+    },
+    {
+      "to": "a1",
+      "from": "l2",
+      "toPort": "top",
+      "fromPort": "bottom"
+    },
+    {
+      "to": "a2",
+      "from": "a1",
+      "toPort": "left",
+      "fromPort": "right"
+    },
+    {
+      "to": "a3",
+      "from": "a2",
+      "label": "Sí: primero autoriza",
+      "toPort": "left",
+      "fromPort": "right"
+    },
+    {
+      "to": "u3",
+      "from": "a3",
+      "toPort": "left",
+      "fromPort": "top"
+    },
+    {
+      "to": "a4",
+      "from": "u3",
+      "toPort": "right",
+      "fromPort": "bottom"
+    },
+    {
+      "to": "a4",
+      "from": "a2",
+      "label": "No: paga ya",
+      "toPort": "bottom",
+      "fromPort": "bottom"
+    },
+    {
+      "to": "l3",
+      "from": "a4",
+      "toPort": "bottom",
+      "fromPort": "top"
+    },
+    {
+      "to": "u4",
+      "from": "l3",
+      "toPort": "left",
+      "fromPort": "top"
+    },
+    {
+      "to": "w1",
+      "from": "u4",
+      "toPort": "top",
+      "fromPort": "bottom"
+    },
+    {
+      "to": "w2",
+      "from": "w1",
+      "toPort": "left",
+      "fromPort": "right"
+    },
+    {
+      "to": "a5",
+      "from": "w2",
+      "toPort": "bottom",
+      "fromPort": "top"
+    },
+    {
+      "to": "l4",
+      "from": "a5",
+      "toPort": "bottom",
+      "fromPort": "top"
+    },
+    {
+      "to": "u5",
+      "from": "l4",
+      "toPort": "left",
+      "fromPort": "top"
+    },
+    {
+      "to": "a6",
+      "from": "a5",
+      "toPort": "left",
+      "fromPort": "right"
+    },
+    {
+      "to": "z1",
+      "from": "a6",
+      "label": "siempre automático",
+      "toPort": "top",
+      "fromPort": "bottom"
+    },
+    {
+      "to": "a8",
+      "from": "a6",
+      "label": "si falla",
+      "toPort": "left",
+      "fromPort": "right"
+    },
+    {
+      "to": "s1",
+      "from": "a8",
+      "toPort": "bottom",
+      "fromPort": "top"
+    },
+    {
+      "to": "s2",
+      "from": "s1",
+      "toPort": "left",
+      "fromPort": "right"
+    },
+    {
+      "to": "s3",
+      "from": "s2",
+      "toPort": "left",
+      "fromPort": "right"
+    },
+    {
+      "to": "z1",
+      "from": "s2",
+      "label": "reanuda consulta",
+      "toPort": "left",
+      "fromPort": "bottom"
+    },
+    {
+      "to": "z2",
+      "from": "z1",
+      "toPort": "left",
+      "fromPort": "right"
+    },
+    {
+      "to": "a7",
+      "from": "z2",
+      "toPort": "bottom",
+      "fromPort": "top"
+    },
+    {
+      "to": "u6",
+      "from": "a7",
+      "label": "envía reporte",
+      "toPort": "bottom",
+      "fromPort": "top"
+    },
+    {
+      "to": "u6",
+      "from": "u5",
+      "label": "espera el correo",
+      "toPort": "left",
+      "fromPort": "right"
+    }
+  ],
   "lanes": [
-    { "id": "usuario", "name": "Usuario" },
-    { "id": "landing", "name": "Landing" },
-    { "id": "staff", "name": "Staff Tubroki" },
-    { "id": "app", "name": "tu-broki-app" },
-    { "id": "wompi", "name": "Wompi" },
-    { "id": "zapsign", "name": "ZapSign" }
+    {
+      "id": "usuario",
+      "name": "Usuario"
+    },
+    {
+      "id": "landing",
+      "name": "Landing"
+    },
+    {
+      "id": "staff",
+      "name": "Staff Tubroki"
+    },
+    {
+      "id": "app",
+      "name": "tu-broki-app"
+    },
+    {
+      "id": "wompi",
+      "name": "Wompi"
+    },
+    {
+      "id": "zapsign",
+      "name": "ZapSign"
+    }
   ],
   "nodes": [
     {
       "id": "u1",
+      "row": 1,
       "lane": "usuario",
+      "step": 1,
       "type": "start",
-      "label": "INICIO: Entra a la página para verificar un inquilino",
-      "step": 1
+      "label": "INICIO: Entra a la página para verificar un inquilino"
     },
     {
       "id": "l1",
+      "row": 1,
       "lane": "landing",
+      "step": 3,
       "type": "task",
-      "label": "Muestra el formulario de verificación al usuario",
-      "step": 2
+      "label": "Muestra el formulario de verificación al usuario"
     },
     {
       "id": "u2",
+      "row": 1,
       "lane": "usuario",
+      "note": "Tipos: antecedentes, crédito o combo. Cambia person / credit_person_co / ambos carriles ZapSign.",
+      "step": 4,
       "type": "task",
-      "label": "Elige: ¿me valido a mí o a otra persona? + tipo de estudio + llena datos",
-      "step": 3,
-      "note": "Tipos: antecedentes, crédito o combo. Cambia person / credit_person_co / ambos carriles ZapSign."
+      "label": "Elige: ¿me valido a mí o a otra persona? + tipo de estudio + llena datos"
     },
     {
       "id": "l2",
+      "row": 1,
       "lane": "landing",
+      "step": 5,
       "type": "task",
-      "label": "Envía los datos a Tubroki para crear la orden",
-      "step": 4
+      "label": "Envía los datos a Tubroki para crear la orden"
     },
     {
       "id": "a1",
+      "row": 1,
       "lane": "app",
+      "step": 6,
       "type": "task",
-      "label": "Crea usuario, orden, pago pendiente y registro del estudio",
-      "step": 5
+      "label": "Crea usuario, orden, pago pendiente y registro del estudio"
     },
     {
       "id": "a2",
+      "row": 1,
       "lane": "app",
+      "step": 8,
       "type": "decision",
-      "label": "¿El pago va después de autorizar?",
-      "step": 6
+      "label": "¿El pago va después de autorizar?"
     },
     {
       "id": "a3",
+      "row": 1,
       "lane": "app",
+      "step": 13,
       "type": "task",
-      "label": "Envía correo con link para que la persona autorice el estudio",
-      "step": 7
+      "label": "Envía correo con link para que la persona autorice el estudio"
     },
     {
       "id": "u3",
+      "row": 1,
       "lane": "usuario",
+      "step": 15,
       "type": "task",
-      "label": "Abre el link del correo y da consentimiento para el estudio",
-      "step": 8
+      "label": "Abre el link del correo y da consentimiento para el estudio"
     },
     {
       "id": "a4",
+      "row": 2,
       "lane": "app",
+      "step": 17,
       "type": "task",
-      "label": "Deja listo el link de pago para el usuario",
-      "step": 9
+      "label": "Deja listo el link de pago para el usuario"
     },
     {
       "id": "l3",
+      "row": 1,
       "lane": "landing",
+      "step": 19,
       "type": "task",
-      "label": "Lleva al usuario a pagar o a autorizar, según el caso",
-      "step": 10
+      "label": "Lleva al usuario a pagar o a autorizar, según el caso"
     },
     {
       "id": "u4",
+      "row": 1,
       "lane": "usuario",
+      "step": 21,
       "type": "task",
-      "label": "Revisa el monto y paga en Wompi",
-      "step": 11
+      "label": "Revisa el monto y paga en Wompi"
     },
     {
       "id": "w1",
+      "row": 1,
       "lane": "wompi",
+      "step": 23,
       "type": "task",
-      "label": "Abre el checkout y cobra el dinero",
-      "step": 12
+      "label": "Abre el checkout y cobra el dinero"
     },
     {
       "id": "w2",
+      "row": 1,
       "lane": "wompi",
+      "step": 25,
       "type": "task",
-      "label": "Pago aprobado: avisa a Tubroki por webhook",
-      "step": 13
+      "label": "Pago aprobado: avisa a Tubroki por webhook"
     },
     {
       "id": "a5",
+      "row": 1,
       "lane": "app",
+      "step": 26,
       "type": "task",
-      "label": "Al confirmar pago: activa la orden y pone el estudio en proceso",
-      "step": 14
+      "label": "Al confirmar pago: activa la orden y pone el estudio en proceso"
     },
     {
       "id": "l4",
+      "row": 1,
       "lane": "landing",
+      "step": 27,
       "type": "task",
-      "label": "Página de resultado: confirma el pago y hace seguimiento",
-      "step": 15
-    },
-    {
-      "id": "u5",
-      "lane": "usuario",
-      "type": "task",
-      "label": "Ve confirmación de pago y mensaje: el reporte llega por correo (<20 min)",
-      "step": 16
+      "label": "Página de resultado: confirma el pago y hace seguimiento"
     },
     {
       "id": "a6",
+      "row": 1,
       "lane": "app",
+      "step": 28,
       "type": "task",
-      "label": "Dispara estudio automático: antecedentes, crédito o combo (mismo flujo; solo cambia el tipo ZapSign)",
-      "step": 17
+      "label": "Dispara estudio automático: antecedentes, crédito o combo (mismo flujo; solo cambia el tipo ZapSign)"
     },
     {
-      "id": "z1",
-      "lane": "zapsign",
-      "type": "task",
-      "label": "Consulta en ZapSign (person y/o crédito según el producto elegido)",
-      "step": 18
-    },
-    {
-      "id": "z2",
-      "lane": "zapsign",
-      "type": "task",
-      "label": "Devuelve score y detalle; Tubroki arma el PDF",
-      "step": 19
-    },
-    {
-      "id": "a7",
-      "lane": "app",
-      "type": "task",
-      "label": "Genera PDF Tubroki y lo envía por correo (cualquier tipo de estudio)",
-      "step": 20
-    },
-    {
-      "id": "u6",
+      "id": "u5",
+      "row": 1,
       "lane": "usuario",
-      "type": "end",
-      "label": "FIN: Recibe el PDF del estudio en el correo",
-      "step": 21
+      "step": 28,
+      "type": "task",
+      "label": "Ve confirmación de pago y mensaje: el reporte llega por correo (<20 min)"
     },
     {
       "id": "a8",
+      "row": 2,
       "lane": "app",
+      "note": "Camino de excepción: solo si el pipeline automático falla.",
+      "step": 30,
       "type": "task",
-      "label": "EXCEPCIÓN: el automático falla → avisa a soporte",
-      "step": 18,
-      "note": "Camino de excepción: solo si el pipeline automático falla."
+      "label": "EXCEPCIÓN: el automático falla → avisa a soporte"
     },
     {
       "id": "s1",
+      "row": 1,
       "lane": "staff",
+      "step": 31,
       "type": "task",
-      "label": "Solo si falla: recibe alerta por correo",
-      "step": 19
+      "label": "Solo si falla: recibe alerta por correo"
     },
     {
       "id": "s2",
+      "row": 1,
       "lane": "staff",
+      "step": 33,
       "type": "task",
-      "label": "Entra al admin y reanuda el estudio (Continuar)",
-      "step": 20
+      "label": "Entra al admin y reanuda el estudio (Continuar)"
+    },
+    {
+      "id": "z1",
+      "row": 1,
+      "lane": "zapsign",
+      "step": 34,
+      "type": "task",
+      "label": "Consulta en ZapSign (person y/o crédito según el producto elegido)"
     },
     {
       "id": "s3",
+      "row": 1,
       "lane": "staff",
+      "step": 35,
       "type": "end",
-      "label": "FIN excepción: caso recuperado o handoff",
-      "step": 21
+      "label": "FIN excepción: caso recuperado o handoff"
+    },
+    {
+      "id": "z2",
+      "row": 1,
+      "lane": "zapsign",
+      "step": 36,
+      "type": "task",
+      "label": "Devuelve score y detalle; Tubroki arma el PDF"
+    },
+    {
+      "id": "a7",
+      "row": 1,
+      "lane": "app",
+      "step": 37,
+      "type": "task",
+      "label": "Genera PDF Tubroki y lo envía por correo (cualquier tipo de estudio)"
+    },
+    {
+      "id": "u6",
+      "row": 1,
+      "lane": "usuario",
+      "step": 39,
+      "type": "end",
+      "label": "FIN: Recibe el PDF del estudio en el correo"
     }
   ],
-  "edges": [
-    { "from": "u1", "to": "l1", "fromPort": "bottom", "toPort": "left" },
-    { "from": "l1", "to": "u2", "fromPort": "top", "toPort": "left" },
-    { "from": "u2", "to": "l2", "fromPort": "right", "toPort": "left" },
-    { "from": "l2", "to": "a1", "fromPort": "bottom", "toPort": "left" },
-    { "from": "a1", "to": "a2", "fromPort": "right", "toPort": "left" },
-    {
-      "from": "a2",
-      "to": "a3",
-      "label": "Sí: primero autoriza",
-      "fromPort": "right",
-      "toPort": "left"
-    },
-    { "from": "a3", "to": "u3", "fromPort": "top", "toPort": "bottom" },
-    { "from": "u3", "to": "a4", "fromPort": "right", "toPort": "bottom" },
-    {
-      "from": "a2",
-      "to": "a4",
-      "label": "No: paga ya",
-      "fromPort": "top",
-      "toPort": "left"
-    },
-    { "from": "a4", "to": "l3", "fromPort": "top", "toPort": "bottom" },
-    { "from": "l3", "to": "u4", "fromPort": "top", "toPort": "left" },
-    { "from": "u4", "to": "w1", "fromPort": "bottom", "toPort": "top" },
-    { "from": "w1", "to": "w2", "fromPort": "right", "toPort": "left" },
-    { "from": "w2", "to": "a5", "fromPort": "top", "toPort": "bottom" },
-    { "from": "a5", "to": "l4", "fromPort": "top", "toPort": "bottom" },
-    { "from": "l4", "to": "u5", "fromPort": "top", "toPort": "left" },
-    { "from": "a5", "to": "a6", "fromPort": "right", "toPort": "left" },
-    {
-      "from": "a6",
-      "to": "z1",
-      "label": "siempre automático",
-      "fromPort": "bottom",
-      "toPort": "top"
-    },
-    {
-      "from": "a6",
-      "to": "a8",
-      "label": "si falla",
-      "fromPort": "right",
-      "toPort": "left"
-    },
-    { "from": "a8", "to": "s1", "fromPort": "top", "toPort": "bottom" },
-    { "from": "s1", "to": "s2", "fromPort": "right", "toPort": "left" },
-    { "from": "s2", "to": "s3", "fromPort": "right", "toPort": "left" },
-    {
-      "from": "s2",
-      "to": "z1",
-      "label": "reanuda consulta",
-      "fromPort": "bottom",
-      "toPort": "left"
-    },
-    { "from": "z1", "to": "z2", "fromPort": "right", "toPort": "left" },
-    { "from": "z2", "to": "a7", "fromPort": "top", "toPort": "bottom" },
-    {
-      "from": "a7",
-      "to": "u6",
-      "label": "envía reporte",
-      "fromPort": "top",
-      "toPort": "bottom"
-    },
-    {
-      "from": "u5",
-      "to": "u6",
-      "label": "espera el correo",
-      "fromPort": "right",
-      "toPort": "left"
-    }
-  ],
-  "docs": [
-    {
-      "id": "alcance",
-      "title": "Alcance (copiado de Miro)",
-      "body": "Los 3 tipos de estudio (antecedentes, crédito, combo) son automáticos vía ZapSign. Staff solo interviene si el pipeline falla. Lo que cambia por tipo: `person` / `credit_person_co` / ambos carriles.\n\n**Origen Miro:** Swimlane clásico — Verificación inquilinos (`frame_id` `3458764685219274261`).\n\n**Carriles:** Usuario · Landing · Staff Tubroki · tu-broki-app · Wompi · ZapSign.\n\n**Caminos:**\n1. Feliz: formulario → orden → (autoriza o paga ya) → Wompi → estudio automático ZapSign → PDF por correo.\n2. Excepción: si el automático falla → alerta staff → Continuar en admin → reanuda consulta ZapSign → PDF."
-    },
-    {
-      "id": "interacciones",
-      "title": "Mapa de interacciones",
-      "body": "```mermaid\nflowchart LR\n  u1[INICIO usuario] --> l1[Landing formulario]\n  l1 --> u2[Elige tipo + datos]\n  u2 --> l2[Envía a Tubroki]\n  l2 --> a1[Crea orden]\n  a1 --> a2{¿Pago después de autorizar?}\n  a2 -->|Sí: primero autoriza| a3[Correo autorización]\n  a3 --> u3[Usuario autoriza]\n  u3 --> a4[Link de pago]\n  a2 -->|No: paga ya| a4\n  a4 --> l3[Landing a pagar]\n  l3 --> u4[Paga en Wompi]\n  u4 --> w1[Checkout]\n  w1 --> w2[Webhook]\n  w2 --> a5[Activa orden]\n  a5 --> l4[Página resultado]\n  l4 --> u5[Confirmación]\n  a5 --> a6[Dispara estudio]\n  a6 -->|siempre automático| z1[ZapSign consulta]\n  a6 -->|si falla| a8[Excepción]\n  a8 --> s1[Alerta staff]\n  s1 --> s2[Continuar admin]\n  s2 --> s3[FIN excepción]\n  s2 -->|reanuda| z1\n  z1 --> z2[Score]\n  z2 --> a7[PDF + correo]\n  a7 -->|envía reporte| u6[FIN PDF]\n  u5 -.->|espera el correo| u6\n```"
-    }
-  ]
+  "title": "Verificación de inquilinos (Autoservicio)"
 }

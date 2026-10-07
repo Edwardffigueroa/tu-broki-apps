@@ -5,6 +5,8 @@ export type NodeType = 'start' | 'task' | 'decision' | 'document' | 'end'
 export interface Lane {
   id: string
   name: string
+  /** Filas de grid dentro del carril (1–8). Por defecto {@link DEFAULT_LANE_ROWS}. */
+  rows?: number
 }
 
 export interface DiagramNode {
@@ -13,7 +15,13 @@ export interface DiagramNode {
   type: NodeType
   label: string
   step?: number
+  /** Fila dentro del carril (1-based). Si falta, el layout la asigna. */
+  row?: number
   note?: string
+  /** Ancho manual (px). Si falta, se calcula según el texto. */
+  w?: number
+  /** Alto manual (px). Si falta, se calcula según el texto. */
+  h?: number
 }
 
 export type Port = 'top' | 'right' | 'bottom' | 'left'
@@ -70,15 +78,32 @@ export interface DiagramModel {
 
 export interface TypeMeta {
   name: string
+  /** Ancho mínimo; el layout puede crecer según el texto (hasta ~COLW). */
   w: number
+  /** Alto mínimo; el layout puede crecer según el texto (hasta ~LH). */
   h: number
   def: string
 }
 
-export const HEAD = 116
-export const TOP = 32
-export const COLW = 176
-export const LH = 128
+export const HEAD = 132
+export const TOP = 36
+/** Ancho de columna: deja aire entre nodos y espacio para stubs de las líneas. */
+export const COLW = 220
+/** Altura de una fila de grid dentro de un carril. */
+export const ROW_H = 128
+/** Filas por carril si no se especifica `lanes[].rows`. */
+export const DEFAULT_LANE_ROWS = 2
+/** Alias histórico: una fila de grid (antes era la altura total del carril). */
+export const LH = ROW_H
+export const MIN_LANE_ROWS = 1
+export const MAX_LANE_ROWS = 8
+
+/** Número de filas de un carril (clamp 1–8, default 2). */
+export function laneRows(lane: Pick<Lane, 'rows'> | undefined | null): number {
+  const raw = lane?.rows
+  if (raw == null || !Number.isFinite(+raw)) return DEFAULT_LANE_ROWS
+  return Math.min(MAX_LANE_ROWS, Math.max(MIN_LANE_ROWS, Math.round(+raw)))
+}
 
 export const TYPES: Record<NodeType, TypeMeta> = {
   start: { name: 'Inicio', w: 112, h: 48, def: 'Inicio' },
@@ -107,7 +132,10 @@ export const ALIAS: Record<string, NodeType> = {
 export interface Geom {
   n: DiagramNode
   c: number
+  /** Índice del carril (0-based). */
   li: number
+  /** Fila dentro del carril (0-based). */
+  ri: number
   w: number
   h: number
   cx: number
@@ -117,8 +145,15 @@ export interface Geom {
 export interface LayoutResult {
   G: Record<string, Geom>
   maxCol: number
+  /** Ocupación `laneId|col|row` → 1 */
   occ: Record<string, number>
   back: Record<number, number>
+  /** Y de inicio de cada carril (incluye TOP). */
+  laneTops: number[]
+  /** Altura total de cada carril (rows × ROW_H). */
+  laneHeights: number[]
+  /** Altura total del bloque de carriles (sin TOP). */
+  lanesH: number
 }
 
 export function slug(s: string): string {

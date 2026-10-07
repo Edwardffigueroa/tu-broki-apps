@@ -1,4 +1,22 @@
-import { PORT_NAMES, PORTS, TYPE_ORDER, TYPES, type NodeType, type Port } from '../../core/carriles'
+import {
+  DEFAULT_LANE_ROWS,
+  MAX_LANE_ROWS,
+  MIN_LANE_ROWS,
+  NODE_MAX_H,
+  NODE_MAX_W,
+  PORT_NAMES,
+  PORTS,
+  TYPE_ORDER,
+  TYPES,
+  clamp,
+  clampNodeSize,
+  laneRows,
+  measureNode,
+  minNodeSize,
+  placeFree,
+  type NodeType,
+  type Port,
+} from '../../core/carriles'
 import { typeIcon } from './CanvasSvg'
 import type { EditorController } from './useEditorController'
 
@@ -11,8 +29,9 @@ export function Inspector({ ctrl }: { ctrl: EditorController }) {
         <h3>Cómo se usa</h3>
         <ul>
           <li>Toca un paso, una flecha o el nombre de un carril para editarlo aquí.</li>
-          <li>Arrastra un paso a otro carril o columna.</li>
+          <li>Arrastra un paso a otro carril, columna o fila dentro del carril (por defecto cada carril tiene 2 filas).</li>
           <li>Pasa el cursor por un paso: aparecen 4 puntos (arriba, derecha, abajo, izquierda). Arrastra desde uno hasta el lado del paso destino para conectarlos.</li>
+          <li>Con un paso seleccionado, arrastra el cuadrito de la esquina inferior derecha para cambiar el tamaño a mano.</li>
           <li>Las notas de cada paso se numeran y se listan debajo del diagrama.</li>
           <li>Más abajo puedes agregar cards de documentación del proceso en Markdown (con Mermaid), como en la Wiki.</li>
           <li>Escribe o pega JSON en el panel izquierdo y el diagrama se actualiza al instante.</li>
@@ -104,9 +123,9 @@ export function Inspector({ ctrl }: { ctrl: EditorController }) {
                 const node = m.nodes.find((x) => x.id === sel.id)
                 if (!node) return
                 node.lane = lane
-                while (m.nodes.some((o) => o !== node && o.lane === node.lane && o.step === node.step)) {
-                  node.step = (node.step || 1) + 1
-                }
+                const placed = placeFree(m, lane, node.step || 1, node.row || 1, node)
+                node.step = placed.step
+                node.row = placed.row
               })
             }}
           >
@@ -123,7 +142,7 @@ export function Inspector({ ctrl }: { ctrl: EditorController }) {
               aria-label="Un paso antes"
               onClick={() => {
                 const cur = (g?.c ?? 0) + 1
-                setStep(ctrl, sel.id, Math.max(1, cur - 1))
+                setCell(ctrl, sel.id, Math.max(1, cur - 1), (g?.ri ?? 0) + 1)
               }}
             >−</button>
             <input
@@ -133,7 +152,7 @@ export function Inspector({ ctrl }: { ctrl: EditorController }) {
               value={(g?.c ?? 0) + 1}
               onChange={(e) => {
                 const v = parseInt(e.target.value, 10)
-                if (v >= 1) setStep(ctrl, sel.id, v)
+                if (v >= 1) setCell(ctrl, sel.id, v, (g?.ri ?? 0) + 1)
               }}
             />
             <button
@@ -141,10 +160,107 @@ export function Inspector({ ctrl }: { ctrl: EditorController }) {
               aria-label="Un paso después"
               onClick={() => {
                 const cur = (g?.c ?? 0) + 1
-                setStep(ctrl, sel.id, cur + 1)
+                setCell(ctrl, sel.id, cur + 1, (g?.ri ?? 0) + 1)
               }}
             >+</button>
           </div>
+        </div>
+        <div className="f">
+          <label className="lbl" htmlFor="i-row">Fila en el carril</label>
+          <div className="stepper">
+            <button
+              type="button"
+              aria-label="Fila anterior"
+              onClick={() => {
+                const maxR = laneRows(model.lanes.find((l) => l.id === n.lane))
+                const cur = (g?.ri ?? 0) + 1
+                setCell(ctrl, sel.id, (g?.c ?? 0) + 1, Math.max(1, cur - 1), maxR)
+              }}
+            >−</button>
+            <input
+              id="i-row"
+              type="number"
+              min={1}
+              max={laneRows(model.lanes.find((l) => l.id === n.lane))}
+              value={(g?.ri ?? 0) + 1}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10)
+                const maxR = laneRows(model.lanes.find((l) => l.id === n.lane))
+                if (v >= 1) setCell(ctrl, sel.id, (g?.c ?? 0) + 1, v, maxR)
+              }}
+            />
+            <button
+              type="button"
+              aria-label="Fila siguiente"
+              onClick={() => {
+                const maxR = laneRows(model.lanes.find((l) => l.id === n.lane))
+                const cur = (g?.ri ?? 0) + 1
+                setCell(ctrl, sel.id, (g?.c ?? 0) + 1, Math.min(maxR, cur + 1), maxR)
+              }}
+            >+</button>
+          </div>
+        </div>
+        <div className="f">
+          <span className="lbl">Tamaño</span>
+          <div className="stepper size-row">
+            <label className="lbl" htmlFor="i-w">Ancho</label>
+            <input
+              id="i-w"
+              type="number"
+              min={minNodeSize(n.type).w}
+              max={NODE_MAX_W}
+              value={g?.w ?? measureNode(n).w}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10)
+                if (!Number.isFinite(v)) return
+                mutate((m) => {
+                  const node = m.nodes.find((x) => x.id === sel.id)
+                  if (!node) return
+                  const sized = clampNodeSize(node.type, v, node.h ?? g?.h ?? measureNode(node).h)
+                  node.w = sized.w
+                  node.h = sized.h
+                }, { key: 'size' + sel.id })
+              }}
+            />
+            <label className="lbl" htmlFor="i-h">Alto</label>
+            <input
+              id="i-h"
+              type="number"
+              min={minNodeSize(n.type).h}
+              max={NODE_MAX_H}
+              value={g?.h ?? measureNode(n).h}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10)
+                if (!Number.isFinite(v)) return
+                mutate((m) => {
+                  const node = m.nodes.find((x) => x.id === sel.id)
+                  if (!node) return
+                  const sized = clampNodeSize(node.type, node.w ?? g?.w ?? measureNode(node).w, v)
+                  node.w = sized.w
+                  node.h = sized.h
+                }, { key: 'size' + sel.id })
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            style={{ marginTop: 6 }}
+            disabled={n.w == null && n.h == null}
+            title="Vuelve al tamaño automático según el texto"
+            onClick={() =>
+              mutate((m) => {
+                const node = m.nodes.find((x) => x.id === sel.id)
+                if (!node) return
+                delete node.w
+                delete node.h
+              })
+            }
+          >
+            Automático
+          </button>
+          {(n.w != null || n.h != null) && (
+            <p className="size-hint">Tamaño manual · máx. {NODE_MAX_W}×{NODE_MAX_H} px</p>
+          )}
         </div>
         <div className="f">
           <label className="lbl" htmlFor="i-note">Nota</label>
@@ -178,11 +294,16 @@ export function Inspector({ ctrl }: { ctrl: EditorController }) {
               mutate((m) => {
                 const src = m.nodes.find((o) => o.id === sel.id)
                 if (!src) return
-                const c = { ...src, id: '', label: src.label + ' (copia)', step: (src.step || 1) + 1 }
                 let k = 1
                 while (m.nodes.some((o) => o.id === 'n' + k)) k++
-                c.id = 'n' + k
-                while (m.nodes.some((o) => o.lane === c.lane && o.step === c.step)) c.step = (c.step || 1) + 1
+                const placed = placeFree(m, src.lane, (src.step || 1) + 1, src.row || 1)
+                const c = {
+                  ...src,
+                  id: 'n' + k,
+                  label: src.label + ' (copia)',
+                  step: placed.step,
+                  row: placed.row,
+                }
                 m.nodes.push(c)
                 newId = c.id
               })
@@ -322,6 +443,35 @@ export function Inspector({ ctrl }: { ctrl: EditorController }) {
           }}
         />
       </div>
+      <div className="f">
+        <label className="lbl" htmlFor="i-lrows">Filas de grid</label>
+        <div className="stepper">
+          <button
+            type="button"
+            aria-label="Menos filas"
+            disabled={laneRows(l) <= MIN_LANE_ROWS}
+            onClick={() => setLaneRows(ctrl, sel.i, laneRows(l) - 1)}
+          >−</button>
+          <input
+            id="i-lrows"
+            type="number"
+            min={MIN_LANE_ROWS}
+            max={MAX_LANE_ROWS}
+            value={laneRows(l)}
+            onChange={(e) => {
+              const v = parseInt(e.target.value, 10)
+              if (Number.isFinite(v)) setLaneRows(ctrl, sel.i, v)
+            }}
+          />
+          <button
+            type="button"
+            aria-label="Más filas"
+            disabled={laneRows(l) >= MAX_LANE_ROWS}
+            onClick={() => setLaneRows(ctrl, sel.i, laneRows(l) + 1)}
+          >+</button>
+        </div>
+        <p className="size-hint">Por defecto {DEFAULT_LANE_ROWS}. Máx. {MAX_LANE_ROWS}.</p>
+      </div>
       <div className="row" style={{ marginBottom: 12 }}>
         <button
           type="button"
@@ -373,13 +523,33 @@ export function Inspector({ ctrl }: { ctrl: EditorController }) {
   )
 }
 
-function setStep(ctrl: EditorController, id: string, v: number) {
+function setCell(
+  ctrl: EditorController,
+  id: string,
+  step: number,
+  row: number,
+  maxRow?: number,
+) {
   ctrl.mutate((m) => {
     const n = m.nodes.find((x) => x.id === id)
     if (!n) return
-    n.step = v
-    while (m.nodes.some((o) => o !== n && o.lane === n.lane && o.step === n.step)) {
-      n.step = (n.step || 1) + 1
-    }
-  }, { key: 'step' + id })
+    const rows = maxRow ?? laneRows(m.lanes.find((l) => l.id === n.lane))
+    const placed = placeFree(m, n.lane, step, clamp(row, 1, rows), n)
+    n.step = placed.step
+    n.row = placed.row
+  }, { key: 'cell' + id })
+}
+
+function setLaneRows(ctrl: EditorController, laneIndex: number, rowsRaw: number) {
+  ctrl.mutate((m) => {
+    const lane = m.lanes[laneIndex]
+    if (!lane) return
+    const rows = clamp(Math.round(rowsRaw), MIN_LANE_ROWS, MAX_LANE_ROWS)
+    if (rows === DEFAULT_LANE_ROWS) delete lane.rows
+    else lane.rows = rows
+    m.nodes.forEach((n) => {
+      if (n.lane !== lane.id || n.row == null) return
+      if (n.row > rows) n.row = rows
+    })
+  }, { key: 'lrows' + laneIndex })
 }

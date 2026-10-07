@@ -2,15 +2,19 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   COLW,
   HEAD,
-  LH,
   PORTS,
+  ROW_H,
   TOP,
   anchor,
   clamp,
+  clampNodeSize,
   dedupe,
   labelAt,
+  laneRows,
+  measureNode,
   nearestPort,
   pathD,
+  placeFree,
   routeEdge,
   wrap,
   type Geom,
@@ -64,25 +68,19 @@ function NodeShape({ g, noteNumber, withPorts = true }: { g: Geom; noteNumber?: 
   const { n, w, h } = g
   const hw = w / 2
   const hh = h / 2
-  let max = 18
-  let ml = 3
+  const measured = measureNode(n)
+  const lines = measured.lines
   let dy = 0
   let shape: ReactNode
   switch (n.type) {
     case 'start':
       shape = <rect className="shape s-start" x={-hw} y={-hh} width={w} height={h} rx={hh} />
-      max = 14
-      ml = 2
       break
     case 'end':
       shape = <rect className="shape s-end" x={-hw} y={-hh} width={w} height={h} rx={hh} />
-      max = 14
-      ml = 2
       break
     case 'decision':
       shape = <polygon className="shape s-decision" points={`0,${-hh} ${hw},0 0,${hh} ${-hw},0`} />
-      max = 11
-      ml = 3
       break
     case 'document':
       shape = (
@@ -91,14 +89,11 @@ function NodeShape({ g, noteNumber, withPorts = true }: { g: Geom; noteNumber?: 
           d={`M${-hw} ${-hh} H${hw} V${hh - 9} Q${hw / 2} ${hh + 5} 0 ${hh - 9} T${-hw} ${hh - 9} Z`}
         />
       )
-      max = 18
-      ml = 2
       dy = -4
       break
     default:
       shape = <rect className="shape" x={-hw} y={-hh} width={w} height={h} rx={9} />
   }
-  const lines = wrap(n.label, max, ml)
   const lh = 14.5
   const y0 = dy - ((lines.length - 1) * lh) / 2
   const badge = n.type === 'decision' ? [hw / 2 + 4, -hh / 2 - 4] : [hw - 6, -hh + 6]
@@ -140,7 +135,7 @@ type DragState = {
   moved: boolean
   px: number
   py: number
-  cell: { c: number; li: number } | null
+  cell: { c: number; li: number; ri: number } | null
 }
 
 type ConnState = {
@@ -152,6 +147,16 @@ type ConnState = {
   ey: number
   target: string | null
   toPort: Port | null
+}
+
+type ResizeState = {
+  id: string
+  sx: number
+  sy: number
+  startW: number
+  startH: number
+  w: number
+  h: number
 }
 
 const NOTES_TITLE_H = 34
@@ -169,10 +174,11 @@ export function CanvasSvg({
   const svgRef = useRef<SVGSVGElement>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
   const [conn, setConn] = useState<ConnState | null>(null)
+  const [resize, setResize] = useState<ResizeState | null>(null)
 
   const ncols = Math.max(L.maxCol + 2, 5)
   const W = HEAD + ncols * COLW
-  const lanesH = TOP + model.lanes.length * LH
+  const lanesH = TOP + L.lanesH
 
   // Notas al pie: numeradas en el orden en que aparecen los pasos.
   const notedNodes = model.nodes.filter((n) => n.note)
@@ -196,11 +202,24 @@ export function CanvasSvg({
   }, [])
 
   const cellAt = useCallback(
-    (x: number, y: number) => ({
-      c: clamp(Math.floor((x - HEAD) / COLW), 0, ncols - 1),
-      li: clamp(Math.floor((y - TOP) / LH), 0, model.lanes.length - 1),
-    }),
-    [ncols, model.lanes.length],
+    (x: number, y: number) => {
+      const c = clamp(Math.floor((x - HEAD) / COLW), 0, ncols - 1)
+      let li = 0
+      for (let i = 0; i < L.laneTops.length; i++) {
+        const top = L.laneTops[i]
+        const h = L.laneHeights[i]
+        if (y < top + h) {
+          li = i
+          break
+        }
+        li = i
+      }
+      const top = L.laneTops[li] ?? TOP
+      const rows = laneRows(model.lanes[li])
+      const ri = clamp(Math.floor((y - top) / ROW_H), 0, rows - 1)
+      return { c, li, ri }
+    },
+    [ncols, L.laneTops, L.laneHeights, model.lanes],
   )
 
   const nodeAtPoint = useCallback(
@@ -246,6 +265,24 @@ export function CanvasSvg({
       select({ kind: 'lane', i: Number(t.dataset.i) })
       return
     }
+    if (kind === 'resize') {
+      const id = t.dataset.id!
+      const g = L.G[id]
+      if (!g) return
+      const p = svgPt(e)
+      select({ kind: 'node', id })
+      svgRef.current?.setPointerCapture(e.pointerId)
+      setResize({
+        id,
+        sx: p.x,
+        sy: p.y,
+        startW: g.w,
+        startH: g.h,
+        w: g.w,
+        h: g.h,
+      })
+      return
+    }
     const id = t.dataset.id!
     const p = svgPt(e)
     if (!(sel && sel.kind === 'node' && sel.id === id)) select({ kind: 'node', id })
@@ -272,7 +309,18 @@ export function CanvasSvg({
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (drag) {
+    if (resize) {
+      const p = svgPt(e)
+      const node = model.nodes.find((n) => n.id === resize.id)
+      if (!node) return
+      // Centro fijo: el arrastre desde la esquina SE crece 2× en cada eje.
+      const sized = clampNodeSize(
+        node.type,
+        resize.startW + 2 * (p.x - resize.sx),
+        resize.startH + 2 * (p.y - resize.sy),
+      )
+      setResize({ ...resize, w: sized.w, h: sized.h })
+    } else if (drag) {
       const p = svgPt(e)
       let next = { ...drag, px: p.x, py: p.y }
       if (!next.moved) {
@@ -296,7 +344,19 @@ export function CanvasSvg({
   }
 
   const endPointer = (cancel: boolean) => {
-    if (drag) {
+    if (resize) {
+      const r = resize
+      setResize(null)
+      if (!cancel) {
+        mutate((m) => {
+          const n = m.nodes.find((o) => o.id === r.id)
+          if (!n) return
+          const sized = clampNodeSize(n.type, r.w, r.h)
+          n.w = sized.w
+          n.h = sized.h
+        }, { key: 'size' + r.id })
+      }
+    } else if (drag) {
       const d = drag
       setDrag(null)
       if (d.moved && d.cell && !cancel) {
@@ -304,10 +364,12 @@ export function CanvasSvg({
         mutate((m) => {
           const n = m.nodes.find((o) => o.id === d.id)
           if (!n) return
-          n.lane = m.lanes[cell.li].id
-          let s = cell.c + 1
-          while (m.nodes.some((o) => o !== n && o.lane === n.lane && o.step === s)) s++
-          n.step = s
+          const lane = m.lanes[cell.li]
+          if (!lane) return
+          n.lane = lane.id
+          const placed = placeFree(m, lane.id, cell.c + 1, cell.ri + 1, n)
+          n.step = placed.step
+          n.row = placed.row
         })
       }
     } else if (conn) {
@@ -363,23 +425,35 @@ export function CanvasSvg({
       </defs>
 
       {model.lanes.map((l, i) => {
-        const y = TOP + i * LH
+        const y = L.laneTops[i] ?? TOP
+        const h = L.laneHeights[i] ?? ROW_H
+        const rows = laneRows(l)
         const k = i % 6
         const lines = wrap(l.name, 13, 3)
         const isSel = sel?.kind === 'lane' && sel.i === i
         return (
           <g key={l.id}>
-            <rect x={0} y={y} width={W} height={LH} fill={`var(--lt${k})`} />
+            <rect x={0} y={y} width={W} height={h} fill={`var(--lt${k})`} />
+            {Array.from({ length: rows - 1 }, (_, r) => (
+              <line
+                key={r}
+                className="rowguide"
+                x1={HEAD}
+                x2={W}
+                y1={y + (r + 1) * ROW_H}
+                y2={y + (r + 1) * ROW_H}
+              />
+            ))}
             <g className={'lhg' + (isSel ? ' sel' : '')} data-kind="lane" data-i={i}>
-              <title>{l.name}</title>
-              <rect className="lhead" x={0} y={y} width={HEAD} height={LH} fill={`var(--lh${k})`} />
+              <title>{l.name + (rows > 1 ? ` · ${rows} filas` : '')}</title>
+              <rect className="lhead" x={0} y={y} width={HEAD} height={h} fill={`var(--lh${k})`} />
               {lines.map((t, j) => (
-                <text key={j} className="ltext" x={14} y={y + LH / 2 + (j - (lines.length - 1) / 2) * 17 + 4.5}>
+                <text key={j} className="ltext" x={14} y={y + h / 2 + (j - (lines.length - 1) / 2) * 17 + 4.5}>
                   {t}
                 </text>
               ))}
             </g>
-            <line className="sepl" x1={0} x2={W} y1={y + LH} y2={y + LH} />
+            <line className="sepl" x1={0} x2={W} y1={y + h} y2={y + h} />
           </g>
         )
       })}
@@ -403,8 +477,8 @@ export function CanvasSvg({
         const a = L.G[e.from]
         const b = L.G[e.to]
         if (!a || !b) return null
-        const pts = dedupe(routeEdge(a, b, L, e))
-        const dPath = pathD(pts)
+        const pts = dedupe(routeEdge(a, b, L, e, i))
+        const dPath = pathD(pts, 24)
         const isSel = sel?.kind === 'edge' && sel.i === i
         const isBack = Boolean(L.back[i])
         const lab = e.label ? labelAt(pts, e.label) : null
@@ -428,20 +502,47 @@ export function CanvasSvg({
       })}
 
       {model.nodes.map((n) => {
-        const g = L.G[n.id]
-        if (!g) return null
+        const base = L.G[n.id]
+        if (!base) return null
         const isSel = sel?.kind === 'node' && sel.id === n.id
         const isTarget = conn?.target === n.id
         const isGhost = Boolean(drag?.moved && drag.id === n.id)
+        const live =
+          resize && resize.id === n.id
+            ? {
+                ...base,
+                w: resize.w,
+                h: resize.h,
+                n: { ...n, w: resize.w, h: resize.h },
+              }
+            : base
         return (
           <g
             key={n.id}
-            className={'node' + (isSel ? ' sel' : '') + (isTarget ? ' target' : '') + (isGhost ? ' ghosting' : '')}
+            className={
+              'node' +
+              (isSel ? ' sel' : '') +
+              (isTarget ? ' target' : '') +
+              (isGhost ? ' ghosting' : '') +
+              (resize?.id === n.id ? ' resizing' : '')
+            }
             data-kind="node"
             data-id={n.id}
-            transform={`translate(${g.cx} ${g.cy})`}
+            transform={`translate(${live.cx} ${live.cy})`}
           >
-            <NodeShape g={g} noteNumber={noteNumber.get(n.id)} />
+            <NodeShape g={live} noteNumber={noteNumber.get(n.id)} />
+            {isSel && !isGhost && (
+              <rect
+                className="resize-handle"
+                data-kind="resize"
+                data-id={n.id}
+                x={live.w / 2 - 6}
+                y={live.h / 2 - 6}
+                width={12}
+                height={12}
+                rx={2}
+              />
+            )}
           </g>
         )
       })}
@@ -483,9 +584,9 @@ export function CanvasSvg({
             className="cellhl"
             rx={8}
             x={HEAD + drag.cell.c * COLW + 6}
-            y={TOP + drag.cell.li * LH + 6}
+            y={(L.laneTops[drag.cell.li] ?? TOP) + drag.cell.ri * ROW_H + 6}
             width={COLW - 12}
-            height={LH - 12}
+            height={ROW_H - 12}
           />
         )}
         {drag?.moved && L.G[drag.id] && (

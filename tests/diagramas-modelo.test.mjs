@@ -63,6 +63,41 @@ describe('diagramas/modelo', () => {
     assert.deepEqual(r.modelo.edges[1], { from: 'n2', to: 'n1', fromPort: 'top' });
   });
 
+  it('conserva tamaño manual w/h del nodo', () => {
+    const r = normalizeModelo({
+      lanes: [{ id: 'a', name: 'A' }],
+      nodes: [
+        { id: 'n1', lane: 'a', type: 'task', label: 'Grande', w: 150, h: 90 },
+        { id: 'n2', lane: 'a', type: 'start', label: 'OK', width: 120, height: 50 },
+      ],
+      edges: [],
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.modelo.nodes[0].w, 150);
+    assert.equal(r.modelo.nodes[0].h, 90);
+    assert.equal(r.modelo.nodes[1].w, 120);
+    assert.equal(r.modelo.nodes[1].h, 50);
+  });
+
+  it('conserva filas de carril (≠ default 2) y row de nodo', () => {
+    const r = normalizeModelo({
+      lanes: [
+        { id: 'a', name: 'A', rows: 3 },
+        { id: 'b', name: 'B', rows: 2 },
+      ],
+      nodes: [
+        { id: 'n1', lane: 'a', type: 'task', label: 'Arriba', step: 1, row: 1 },
+        { id: 'n2', lane: 'a', type: 'task', label: 'Abajo', step: 1, row: 2 },
+      ],
+      edges: [],
+    });
+    assert.equal(r.ok, true);
+    assert.equal(r.modelo.lanes[0].rows, 3);
+    assert.equal(r.modelo.lanes[1].rows, undefined); // default 2 no se persiste
+    assert.equal(r.modelo.nodes[0].row, 1);
+    assert.equal(r.modelo.nodes[1].row, 2);
+  });
+
   it('conserva docs (Markdown del proceso) y acepta string shorthand', () => {
     const r = normalizeModelo({
       lanes: [{ id: 'a', name: 'A' }],

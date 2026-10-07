@@ -1,6 +1,7 @@
 export * from './schema'
 export * from './normalize'
 export * from './layout'
+export * from './measure'
 export * from './route'
 export * from './toText'
 export * from './examples'

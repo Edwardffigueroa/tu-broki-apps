@@ -8,6 +8,7 @@ import {
   materialize,
   nextNodeId,
   normalize,
+  placeFree,
   toText,
   type DiagramModel,
   type NodeType,
@@ -208,12 +209,20 @@ export function useEditorController(diagramId: string, initial: DiagramModel, in
           : sel && sel.kind === 'lane'
             ? m.lanes[sel.i].id
             : m.lanes[0].id
-        let step = from
+        const preferStep = from
           ? (from.step || 1) + 1
           : Math.max(0, ...m.nodes.filter((n) => n.lane === laneId).map((n) => n.step || 0)) + 1
-        while (m.nodes.some((n) => n.lane === laneId && n.step === step)) step++
+        const preferRow = from?.row || 1
+        const placed = placeFree(m, laneId, preferStep, preferRow)
         newId = nextNodeId(m.nodes)
-        m.nodes.push({ id: newId, lane: laneId, type, label: TYPES[type].def, step })
+        m.nodes.push({
+          id: newId,
+          lane: laneId,
+          type,
+          label: TYPES[type].def,
+          step: placed.step,
+          row: placed.row,
+        })
         if (from && from.type !== 'end') m.edges.push({ from: from.id, to: newId })
       })
       setSel({ kind: 'node', id: newId })
@@ -366,6 +375,7 @@ export function useEditorController(diagramId: string, initial: DiagramModel, in
       mutate((m) => {
         m.nodes.forEach((n) => {
           delete n.step
+          delete n.row
         })
       })
       showToast('Pasos reordenados automáticamente')
