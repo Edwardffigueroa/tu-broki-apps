@@ -4,16 +4,48 @@
  * En Vercel (plan Hobby, framework Other) cada archivo bajo `api/` = 1 función.
  * Usamos un entrypoint por dominio (`api/wiki.js`) + rewrites que preservan
  * el recurso en `?__path=` o, en local, el pathname `/api/<dominio>/<recurso>`.
+ *
+ * Nota: en el runtime de Vercel `request.url` a menudo llega como path relativo
+ * (`/api/auth/…`), no como URL absoluta — `new URL()` sin base falla.
  */
 
 import { json } from './http.js';
 
+function headerDe(request, nombre) {
+  const h = request?.headers;
+  if (!h) return null;
+  if (typeof h.get === 'function') return h.get(nombre);
+  return h[nombre] || h[nombre.toLowerCase()] || null;
+}
+
+/** Construye un URL absoluto aunque `request.url` sea relativo (caso Vercel). */
+export function urlDe(request) {
+  const raw = request?.url || '/';
+  if (/^https?:\/\//i.test(raw)) return new URL(raw);
+  const host = headerDe(request, 'x-forwarded-host') || headerDe(request, 'host') || 'localhost';
+  const proto = headerDe(request, 'x-forwarded-proto') || 'https';
+  return new URL(raw, `${proto}://${host}`);
+}
+
+/** Clona el Request con URL absoluta para que los handlers puedan hacer `new URL(request.url)`. */
+export function requestAbsoluto(request) {
+  const abs = urlDe(request).href;
+  if (typeof request?.url === 'string' && request.url === abs) return request;
+  if (typeof Request !== 'undefined' && request instanceof Request) {
+    return new Request(abs, request);
+  }
+  return new Request(abs, {
+    method: request?.method || 'GET',
+    headers: request?.headers,
+  });
+}
+
 export function recursoDe(request, dominio) {
-  const url = new URL(request.url);
-  const desdeQuery = url.searchParams.get('__path');
+  const url = urlDe(request);
+  const desdeQuery = url.searchParams.get('__path') || url.searchParams.get('path');
   if (desdeQuery) {
     const segmento = desdeQuery.split('/').filter(Boolean)[0];
-    return segmento || null;
+    if (segmento) return segmento;
   }
   const limpio = url.pathname.replace(/\/+$/, '');
   const prefijo = `/api/${dominio}/`;
@@ -38,7 +70,7 @@ export async function despachar(request, dominio, rutas) {
   if (typeof handler !== 'function') {
     return json(405, { error: `Método ${request.method} no permitido` });
   }
-  return handler(request);
+  return handler(requestAbsoluto(request));
 }
 
 /** Expone los verbos HTTP que Vercel/Web espera, todos al mismo despachador. */
