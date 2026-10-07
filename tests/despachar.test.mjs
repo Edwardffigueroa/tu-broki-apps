@@ -1,6 +1,22 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { recursoDe, despachar, urlDe, requestAbsoluto } from '../shared/despachar.js';
+import {
+  recursoDe,
+  despachar,
+  urlDe,
+  requestAbsoluto,
+  partesUrl,
+  DESPACHAR_STAMP,
+  entrypoint,
+} from '../shared/despachar.js';
+
+describe('partesUrl', () => {
+  it('parsea path relativo de Vercel sin new URL absoluto', () => {
+    const p = partesUrl('/api/auth/enviar-codigo?__path=enviar-codigo&path=enviar-codigo');
+    assert.equal(p.pathname, '/api/auth/enviar-codigo');
+    assert.equal(p.params.get('__path'), 'enviar-codigo');
+  });
+});
 
 describe('urlDe / requestAbsoluto', () => {
   it('acepta URL relativa como en el runtime de Vercel', () => {
@@ -15,12 +31,9 @@ describe('urlDe / requestAbsoluto', () => {
   });
 
   it('normaliza Request relativo a absoluto', () => {
-    const rel = new Request('http://placeholder.local/api/auth/sesion');
-    // Simula url relativa sobrescribiendo (Request real siempre es absoluto en Node)
     const fake = { url: '/api/auth/sesion', method: 'GET', headers: new Headers({ host: 'example.com' }) };
     const abs = requestAbsoluto(fake);
     assert.match(abs.url, /^https:\/\/example\.com\/api\/auth\/sesion$/);
-    void rel;
   });
 });
 
@@ -35,10 +48,10 @@ describe('recursoDe', () => {
     assert.equal(recursoDe(req, 'wiki'), 'pages');
   });
 
-  it('acepta path relativo de Vercel + query __path', () => {
+  it('acepta path relativo de Vercel sin lanzar Invalid URL', () => {
     const req = {
       url: '/api/auth/enviar-codigo?__path=enviar-codigo&path=enviar-codigo',
-      headers: new Headers({ host: 'x.vercel.app' }),
+      headers: { host: 'x.vercel.app' },
     };
     assert.equal(recursoDe(req, 'auth'), 'enviar-codigo');
   });
@@ -71,5 +84,26 @@ describe('despachar', () => {
   it('405 si el método no está exportado', async () => {
     const res = await despachar(new Request('http://x/api/wiki/ping', { method: 'POST' }), 'wiki', rutas);
     assert.equal(res.status, 405);
+  });
+});
+
+describe('entrypoint node', () => {
+  it('default escribe Response en res.end', async () => {
+    assert.match(DESPACHAR_STAMP, /^despachar-v3/);
+    const { default: handle } = entrypoint('wiki', {
+      ping: { GET: async () => new Response(JSON.stringify({ ok: 1 }), { status: 200, headers: { 'content-type': 'application/json' } }) },
+    });
+    const chunks = [];
+    const res = {
+      statusCode: 0,
+      headersSent: false,
+      setHeader() {},
+      end(buf) {
+        chunks.push(buf);
+      },
+    };
+    await handle({ method: 'GET', url: '/api/wiki/ping', headers: { host: 'localhost' } }, res);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(JSON.parse(Buffer.concat(chunks).toString()), { ok: 1 });
   });
 });
