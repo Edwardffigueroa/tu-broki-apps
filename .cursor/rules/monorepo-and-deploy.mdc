@@ -47,7 +47,7 @@ apps/<slug>/
 
 1. `apps/<slug>/` con `app.json` + `server/` + UI (`web/` o `frontend/`)
 2. Migración `supabase/migrations/AAAAMMDD_00NN_<slug>_schema.sql` + grants a `tubroki_apps` (ver `database-supabase.mdc`)
-3. Rutas `api/<slug>/*.js` → llaman `servicio`, nunca SQL directo
+3. Handlers `handlers/<slug>/*.js` + entrypoint `api/<slug>.js` (registrar recursos) + rewrite `/api/<slug>/:path*` → `/api/<slug>?__path=:path*` en `vercel.json`. Mantener ≤12 funciones en `api/*.js` (Hobby).
 4. Si Vite: añadir slug a `VITE_APPS` en `scripts/build.mjs`, script `build:<slug>` / `dev:<slug>` en `package.json`, rewrite SPA en `vercel.json`, proxy en `vite.config.ts`
    - Puertos Vite actuales: roadmap 5173, diagramas 5174, contabilidad 5175
 5. README de la app + tests unitarios del modelo

@@ -54,5 +54,5 @@ Todas las páginas llevan `noindex` (meta + `X-Robots-Tag`).
 
 1. Crea `apps/<slug>/` con `app.json`, UI (`web/` HTML o `frontend/` Vite) y `server/`.
 2. Migración schema + grants al rol `tubroki_apps`.
-3. Rutas en `api/<slug>/*.js`.
+3. Handlers en `handlers/<slug>/*.js` + entrypoint `api/<slug>.js` + rewrite en `vercel.json` (`/api/<slug>/:path*` → `/api/<slug>?__path=:path*`). Máx. 12 archivos en `api/` (Hobby).
 4. Si es Vite: añádela a `VITE_APPS` en `scripts/build.mjs` y al script `build` raíz.

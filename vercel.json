@@ -6,6 +6,11 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
+    { "source": "/api/auth/:path*", "destination": "/api/auth?__path=:path*" },
+    { "source": "/api/wiki/:path*", "destination": "/api/wiki?__path=:path*" },
+    { "source": "/api/contabilidad/:path*", "destination": "/api/contabilidad?__path=:path*" },
+    { "source": "/api/diagramas/:path*", "destination": "/api/diagramas?__path=:path*" },
+    { "source": "/api/roadmap/:path*", "destination": "/api/roadmap?__path=:path*" },
     { "source": "/roadmap", "destination": "/roadmap/index.html" },
     { "source": "/roadmap/", "destination": "/roadmap/index.html" },
     { "source": "/diagramas", "destination": "/diagramas/index.html" },

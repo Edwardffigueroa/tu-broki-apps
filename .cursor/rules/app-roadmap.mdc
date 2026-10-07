@@ -1,6 +1,6 @@
 ---
 description: Dominio Roadmap — tablero completo, versiones, CSV, vistas React
-globs: apps/roadmap/**/*,api/roadmap/**/*,tests/roadmap*.mjs
+globs: apps/roadmap/**/*,handlers/roadmap/**/*,api/roadmap.js,tests/roadmap*.mjs
 alwaysApply: false
 ---
 
@@ -12,7 +12,7 @@ Tablero único del equipo (`tablero_id = principal`) con tres vistas: **Tabla**,
 
 | Pieza | Path |
 |---|---|
-| API | `api/roadmap/tareas.js` (GET/PUT), `exportar.js` (GET) |
+| API | `handlers/roadmap/{tareas,exportar}.js` + entrypoint `api/roadmap.js` |
 | Servicio | `apps/roadmap/server/servicio.js` |
 | Modelo | `modelo.js` — `validateTareas`, enums |
 | Repo | `repositorio.js` — replace-all + `version` |

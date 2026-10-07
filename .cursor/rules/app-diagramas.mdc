@@ -1,6 +1,6 @@
 ---
 description: Dominio Diagramas — swimlanes, JSON IA, biblioteca, core carriles
-globs: apps/diagramas/**/*,api/diagramas/**/*,tests/diagramas*.mjs
+globs: apps/diagramas/**/*,handlers/diagramas/**/*,api/diagramas.js,tests/diagramas*.mjs
 alwaysApply: false
 ---
 
@@ -15,7 +15,7 @@ Biblioteca de diagramas internos. V1: **swimlanes / carriles** con JSON pensado 
 | UI | `frontend/` — Library + Editor |
 | Core (puro) | `frontend/src/core/carriles/` — schema, normalize, layout, route, narrative, aiPrompt |
 | Server | `server/{modelo,repositorio,servicio}.js` |
-| API | `api/diagramas/{diagramas,diagrama,duplicar,grupos,etiquetas}.js` |
+| API | `handlers/diagramas/*` + entrypoint `api/diagramas.js` |
 | Schema | `diagramas` |
 
 ## Contrato del modelo (JSON)

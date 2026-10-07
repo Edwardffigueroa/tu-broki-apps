@@ -1,6 +1,6 @@
 ---
 description: Convenciones de la app Contabilidad (finanzas internas)
-globs: apps/contabilidad/**/*,api/contabilidad/**/*
+globs: apps/contabilidad/**/*,handlers/contabilidad/**/*,api/contabilidad.js
 alwaysApply: false
 ---
 

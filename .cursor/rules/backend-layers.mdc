@@ -1,6 +1,6 @@
 ---
 description: Capas backend api → servicio → repositorio/modelo, http helpers y SQL
-globs: api/**/*,apps/*/server/**/*,shared/**/*
+globs: api/**/*,handlers/**/*,apps/*/server/**/*,shared/**/*
 alwaysApply: false
 ---
 
@@ -9,7 +9,9 @@ alwaysApply: false
 ## Flujo de dependencias
 
 ```
-api/<recurso>.js     → thin HTTP (método exportado GET|POST|PUT|PATCH|DELETE)
+api/<dominio>.js     → entrypoint Vercel (1 función / dominio; Hobby ≤12)
+       ↓  shared/despachar.js
+handlers/<dominio>/<recurso>.js  → thin HTTP (GET|POST|PUT|PATCH|DELETE)
        ↓
 apps/<slug>/server/servicio.js   → casos de uso, ErrorHttp, orquesta
        ↓
@@ -19,13 +21,16 @@ apps/<slug>/server/repositorio.js → SQL con schema explícito (`roadmap.tareas
 shared/db.js → getSql()  |  shared/http.js | shared/auth.js | shared/env.js
 ```
 
-**API nunca** habla con SQL ni importa `postgres` directamente.  
+**Por qué entrypoints:** en Vercel sin Next cada archivo bajo `api/` cuenta como Serverless Function. Hobby permite 12. Consolidamos a 5: `auth`, `wiki`, `contabilidad`, `diagramas`, `roadmap`. `vercel.json` reescribe `/api/<dominio>/<recurso>` → `/api/<dominio>?__path=<recurso>`.
+
+**API/handlers nunca** hablan con SQL ni importan `postgres` directamente.  
 **Repositorio** no decide status HTTP.  
 **Servicio** traduce fallos de negocio a `ErrorHttp(status, mensaje, extra?)`.
 
 ## Handler canónico
 
 ```js
+// handlers/<dominio>/<recurso>.js
 import { json, leerJson, manejar } from '../../shared/http.js';
 import { exigirSesion } from '../../shared/auth.js';
 import { algunaAccion } from '../../apps/<slug>/server/servicio.js';
@@ -38,8 +43,9 @@ export const GET = manejar(async (request) => {
 ```
 
 - Envolver siempre con `manejar()` (mapea `ErrorHttp` → JSON; resto → 500 seguro).
-- Exportar métodos HTTP por nombre (`GET`, `POST`, …). El dev server y Vercel usan esa firma.
-- Ruta archivo = URL: `api/wiki/page.js` → `/api/wiki/page`.
+- Exportar métodos HTTP por nombre (`GET`, `POST`, …).
+- Registrar el recurso en `api/<dominio>.js` (mapa para `despachar`).
+- URL pública sin cambio: `handlers/wiki/page.js` → `/api/wiki/page`.
 
 ## Errores y validación
 

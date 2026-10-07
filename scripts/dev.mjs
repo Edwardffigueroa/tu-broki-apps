@@ -2,8 +2,8 @@
 /**
  * Servidor local que imita a Vercel sin instalar nada más:
  *   - sirve `public/` (lo arma con scripts/build.mjs al arrancar)
- *   - enruta /api/<ruta> → api/<ruta>.js y ejecuta el export del método (GET, PUT, POST…)
- *     con la misma firma Web Request → Response que usa Vercel.
+ *   - enruta /api/<dominio>/<recurso> → api/<dominio>.js (entrypoint por dominio)
+ *     y despacha al handler en handlers/<dominio>/<recurso>.js (firma Web Request → Response).
  *
  * Variables: .env.local (DATABASE_URL, SESSION_SECRET, SUPABASE_*, APPS_ALLOWED_EMAILS).
  * Uso: npm run dev   (o NO_OPEN=1 npm run dev para no abrir el navegador)
@@ -114,15 +114,27 @@ async function escribirResponse(res, response) {
   res.end(buf);
 }
 
+/**
+ * Resuelve /api/<dominio>/<recurso> → api/<dominio>.js (1 función por dominio).
+ * Misma forma que Vercel con rewrites a /api/<dominio>?__path=<recurso>.
+ */
+function resolverEntrypointApi(pathname) {
+  const partes = pathname.replace(/^\/api\//, '').replace(/\/+$/, '').split('/').filter(Boolean);
+  if (partes.length === 0) return null;
+  const dominio = partes[0];
+  const archivo = path.join(API, `${dominio}.js`);
+  if (!archivo.startsWith(API) || !fs.existsSync(archivo)) return null;
+  return { archivo, dominio, recurso: partes[1] || null };
+}
+
 async function manejarApi(req, res, pathname) {
-  const relativo = pathname.replace(/^\/api\//, '').replace(/\/+$/, '');
-  const archivo = path.join(API, `${relativo}.js`);
-  if (!archivo.startsWith(API) || !fs.existsSync(archivo)) {
+  const resuelto = resolverEntrypointApi(pathname);
+  if (!resuelto) {
     res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ error: `No existe la ruta /api/${relativo}` }));
+    res.end(JSON.stringify({ error: `No existe la ruta ${pathname}` }));
     return;
   }
-  const modulo = await import(pathToFileURL(archivo).href);
+  const modulo = await import(pathToFileURL(resuelto.archivo).href);
   const handler = modulo[req.method] || modulo.default;
   if (typeof handler !== 'function') {
     res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8' });
