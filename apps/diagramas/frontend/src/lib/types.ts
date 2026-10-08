@@ -14,10 +14,12 @@ export interface Grupo {
   updated_at?: string
 }
 
+export type DiagramaTipo = 'swimlane' | 'swimlane-flow'
+
 export interface DiagramaResumen {
   id: string
   titulo: string
-  tipo: string
+  tipo: DiagramaTipo
   grupo_id: string | null
   revision: number
   archived_at: string | null

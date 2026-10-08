@@ -1,0 +1,289 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["contabilidad", "diagramas", "roadmap", "wiki"]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model config {
+  clave      String   @id
+  data       Json     @default("{}")
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("contabilidad")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model metas {
+  mes        String   @id
+  unidades   Json     @default("{}")
+  ventas     Decimal  @default(0) @db.Decimal(14, 2)
+  utilidad   Decimal  @default(0) @db.Decimal(14, 2)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("contabilidad")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model movimientos {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipo            String
+  fecha           DateTime @db.Date
+  fecha_pendiente Boolean  @default(false)
+  estado          String
+  monto           Decimal  @default(0) @db.Decimal(14, 2)
+  quien           String   @default("")
+  tercero         String   @default("")
+  concepto        String   @default("")
+  notas           String   @default("")
+  servicio        String?
+  cantidad        Int?
+  costo_directo   Decimal? @db.Decimal(14, 2)
+  medio           String?
+  categoria       String?
+  servicio_cac    String?
+  creado          DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([estado])
+  @@index([fecha(sort: Desc)])
+  @@index([tipo])
+  @@schema("contabilidad")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model diagrama_etiquetas {
+  diagrama_id String    @db.Uuid
+  etiqueta_id String    @db.Uuid
+  diagramas   diagramas @relation(fields: [diagrama_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  etiquetas   etiquetas @relation(fields: [etiqueta_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([diagrama_id, etiqueta_id])
+  @@index([etiqueta_id], map: "diagrama_etiquetas_etiqueta_idx")
+  @@schema("diagramas")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model diagramas {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  titulo             String
+  tipo               String               @default("swimlane")
+  grupo_id           String?              @db.Uuid
+  modelo             Json                 @default("{}")
+  revision           Int                  @default(1)
+  archived_at        DateTime?            @db.Timestamptz(6)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  diagrama_etiquetas diagrama_etiquetas[]
+  grupos             grupos?              @relation(fields: [grupo_id], references: [id], onUpdate: NoAction)
+
+  @@index([archived_at], map: "diagramas_archived_idx")
+  @@index([updated_at(sort: Desc)], map: "diagramas_updated_idx")
+  @@schema("diagramas")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model etiquetas {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre             String               @unique(map: "etiquetas_nombre_uq")
+  color              String?
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  diagrama_etiquetas diagrama_etiquetas[]
+
+  @@schema("diagramas")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model grupos {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre     String
+  color      String?
+  orden      Int         @default(0)
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime    @default(now()) @db.Timestamptz(6)
+  diagramas  diagramas[]
+
+  @@schema("diagramas")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model respaldos {
+  id         BigInt   @id @default(autoincrement())
+  tablero_id String
+  fecha      DateTime @db.Date
+  csv        String
+  creado     DateTime @default(now()) @db.Timestamptz(6)
+  tableros   tableros @relation(fields: [tablero_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([tablero_id, fecha])
+  @@schema("roadmap")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tableros {
+  id          String      @id
+  nombre      String
+  version     BigInt      @default(1)
+  actualizado DateTime    @default(now()) @db.Timestamptz(6)
+  respaldos   respaldos[]
+  tareas      tareas[]
+
+  @@schema("roadmap")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tareas {
+  id              String    @id
+  tablero_id      String    @default("principal")
+  padre_id        String?
+  tipo            String
+  titulo          String
+  descripcion     String    @default("")
+  grupo           String    @default("")
+  estado          String
+  prioridad       String
+  responsable     String    @default("")
+  estimacion_dias Decimal?  @db.Decimal
+  fecha_inicio    DateTime? @db.Date
+  fecha_fin       DateTime? @db.Date
+  orden           Int       @default(0)
+  creado          DateTime  @default(now()) @db.Timestamptz(6)
+  actualizado     DateTime  @default(now()) @db.Timestamptz(6)
+  tareas          tareas?   @relation("tareasTotareas", fields: [padre_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  other_tareas    tareas[]  @relation("tareasTotareas")
+  tableros        tableros  @relation(fields: [tablero_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([padre_id], map: "tareas_padre_idx")
+  @@index([tablero_id, orden], map: "tareas_tablero_idx")
+  @@schema("roadmap")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model assets {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sha256         String           @unique
+  mime_type      String
+  size_bytes     BigInt
+  original_name  String?
+  content        Bytes
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  pages          pages[]
+  version_assets version_assets[]
+
+  @@schema("wiki")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model page_aliases {
+  alias_key  String   @id
+  page_id    String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  pages      pages    @relation(fields: [page_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([page_id], map: "page_aliases_page_idx")
+  @@schema("wiki")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model page_links {
+  source_page_id                         String  @db.Uuid
+  target_key                             String
+  target_page_id                         String? @db.Uuid
+  pages_page_links_source_page_idTopages pages   @relation("page_links_source_page_idTopages", fields: [source_page_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pages_page_links_target_page_idTopages pages?  @relation("page_links_target_page_idTopages", fields: [target_page_id], references: [id], onUpdate: NoAction)
+
+  @@id([source_page_id, target_key])
+  @@index([target_key], map: "page_links_key_idx")
+  @@index([target_page_id], map: "page_links_target_idx")
+  @@schema("wiki")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model page_versions {
+  id                                               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  page_id                                          String           @db.Uuid
+  version_number                                   Int
+  title                                            String
+  content                                          String
+  content_hash                                     String
+  author                                           String           @default("TuBroki")
+  message                                          String?
+  source                                           version_source   @default(web)
+  restored_from                                    String?          @db.Uuid
+  created_at                                       DateTime         @default(now()) @db.Timestamptz(6)
+  pages_page_versions_page_idTopages               pages            @relation("page_versions_page_idTopages", fields: [page_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  page_versions                                    page_versions?   @relation("page_versionsTopage_versions", fields: [restored_from], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_page_versions                              page_versions[]  @relation("page_versionsTopage_versions")
+  pages_pages_current_version_idTopage_versions    pages[]          @relation("pages_current_version_idTopage_versions")
+  pages_pages_draft_base_version_idTopage_versions pages[]          @relation("pages_draft_base_version_idTopage_versions")
+  version_assets                                   version_assets[]
+
+  @@unique([page_id, version_number])
+  @@index([page_id, version_number(sort: Desc)], map: "page_versions_page_idx")
+  @@schema("wiki")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model pages {
+  id                                                       String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parent_id                                                String?                  @db.Uuid
+  position                                                 String                   @default("a0")
+  title                                                    String
+  title_key                                                String
+  icon                                                     String?
+  metadata                                                 Json                     @default("{}")
+  current_version_id                                       String?                  @db.Uuid
+  draft_title                                              String?
+  draft_content                                            String?
+  draft_revision                                           Int                      @default(0)
+  draft_base_version_id                                    String?                  @db.Uuid
+  draft_updated_at                                         DateTime?                @db.Timestamptz(6)
+  search                                                   Unsupported("tsvector")?
+  created_at                                               DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                                               DateTime                 @default(now()) @db.Timestamptz(6)
+  deleted_at                                               DateTime?                @db.Timestamptz(6)
+  kind                                                     String                   @default("page")
+  asset_id                                                 String?                  @db.Uuid
+  page_aliases                                             page_aliases[]
+  page_links_page_links_source_page_idTopages              page_links[]             @relation("page_links_source_page_idTopages")
+  page_links_page_links_target_page_idTopages              page_links[]             @relation("page_links_target_page_idTopages")
+  page_versions_page_versions_page_idTopages               page_versions[]          @relation("page_versions_page_idTopages")
+  assets                                                   assets?                  @relation(fields: [asset_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  page_versions_pages_current_version_idTopage_versions    page_versions?           @relation("pages_current_version_idTopage_versions", fields: [current_version_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pages_current_version_fk")
+  page_versions_pages_draft_base_version_idTopage_versions page_versions?           @relation("pages_draft_base_version_idTopage_versions", fields: [draft_base_version_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pages_draft_base_fk")
+  pages                                                    pages?                   @relation("pagesTopages", fields: [parent_id], references: [id], onUpdate: NoAction)
+  other_pages                                              pages[]                  @relation("pagesTopages")
+
+  @@index([search], type: Gin)
+  @@schema("wiki")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model version_assets {
+  version_id    String        @db.Uuid
+  asset_id      String        @db.Uuid
+  assets        assets        @relation(fields: [asset_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  page_versions page_versions @relation(fields: [version_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([version_id, asset_id])
+  @@schema("wiki")
+}
+
+enum version_source {
+  web
+  import
+  system
+
+  @@schema("wiki")
+}

@@ -13,8 +13,11 @@
   align-items: center;
   gap: 8px 14px;
   padding: 10px 16px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+  box-shadow: var(--shadow);
+  animation: fm-fade-in 0.4s var(--ease) both;
 }
 
 .editor .brand {

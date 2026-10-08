@@ -5,6 +5,11 @@ let mermaidReady: Promise<typeof import('mermaid').default> | null = null
 let mermaidTheme: 'default' | 'dark' | null = null
 
 function prefersDark(): boolean {
+  if (typeof document !== 'undefined') {
+    const t = document.documentElement.getAttribute('data-theme')
+    if (t === 'dark') return true
+    if (t === 'light') return false
+  }
   return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 

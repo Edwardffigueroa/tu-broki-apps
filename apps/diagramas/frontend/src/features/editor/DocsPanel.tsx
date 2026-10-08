@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { nextDocId } from '../../core/carriles'
+import { nextDocId, type DocCard } from '../../core/carriles'
 import { mdToSafeHtml, renderMermaidIn } from '../../lib/markdown'
 import type { EditorController } from './useEditorController'
 
@@ -18,9 +18,13 @@ function DocPreview({ body }: { body: string }) {
   return <div ref={ref} className="doc-preview md-preview" dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-export function DocsPanel({ ctrl }: { ctrl: EditorController }) {
-  const { model, mutate } = ctrl
-  const docs = model.docs || []
+export function DocsList({
+  docs,
+  onChange,
+}: {
+  docs: DocCard[]
+  onChange: (fn: (docs: DocCard[]) => DocCard[], key?: string) => void
+}) {
   const [modes, setModes] = useState<Record<string, Mode>>({})
 
   const modeOf = (id: string): Mode => modes[id] || 'preview'
@@ -31,41 +35,44 @@ export function DocsPanel({ ctrl }: { ctrl: EditorController }) {
 
   const addDoc = () => {
     let newId = ''
-    mutate((m) => {
-      if (!m.docs) m.docs = []
-      newId = nextDocId(m.docs)
-      m.docs.push({
+    onChange((list) => {
+      const next = [...list]
+      newId = nextDocId(next)
+      next.push({
         id: newId,
         title: 'Nueva nota del proceso',
         body:
           'Escribe en **Markdown**. Puedes pegar un diagrama:\n\n```mermaid\nflowchart LR\n  A[Inicio] --> B[Fin]\n```\n',
       })
+      return next
     })
     if (newId) setMode(newId, 'edit')
   }
 
   const removeDoc = (id: string) => {
-    mutate((m) => {
-      if (!m.docs) return
-      m.docs = m.docs.filter((d) => d.id !== id)
-      if (!m.docs.length) delete m.docs
+    onChange((list) => {
+      const next = list.filter((d) => d.id !== id)
+      return next
     })
   }
 
   const updateDoc = (id: string, patch: { title?: string; body?: string }) => {
-    mutate(
-      (m) => {
-        if (!m.docs) return
-        const d = m.docs.find((x) => x.id === id)
-        if (!d) return
-        if (patch.title != null) {
-          const t = patch.title.trim()
-          if (t) d.title = t.slice(0, 120)
-          else delete d.title
-        }
-        if (patch.body != null) d.body = patch.body
+    onChange(
+      (list) => {
+        const next = list.map((d) => {
+          if (d.id !== id) return d
+          const copy = { ...d }
+          if (patch.title != null) {
+            const t = patch.title.trim()
+            if (t) copy.title = t.slice(0, 120)
+            else delete copy.title
+          }
+          if (patch.body != null) copy.body = patch.body
+          return copy
+        })
+        return next
       },
-      { key: `doc:${id}` },
+      `doc:${id}`,
     )
   }
 
@@ -144,5 +151,21 @@ export function DocsPanel({ ctrl }: { ctrl: EditorController }) {
         })}
       </div>
     </section>
+  )
+}
+
+export function DocsPanel({ ctrl }: { ctrl: EditorController }) {
+  const { model, mutate } = ctrl
+  return (
+    <DocsList
+      docs={model.docs || []}
+      onChange={(fn, key) => {
+        mutate((m) => {
+          if (!m.docs) m.docs = []
+          m.docs = fn(m.docs)
+          if (!m.docs.length) delete m.docs
+        }, { key })
+      }}
+    />
   )
 }

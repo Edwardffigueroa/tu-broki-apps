@@ -4,7 +4,14 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeModelo, modeloVacio, validarTitulo } from '../apps/diagramas/server/modelo.js';
+import {
+  TIPOS,
+  normalizeModelo,
+  modeloVacio,
+  validarTitulo,
+  normalizarPorTipo,
+  modeloVacioPorTipo,
+} from '../apps/diagramas/server/modelo.js';
 
 describe('diagramas/modelo', () => {
   it('normaliza un diagrama mínimo', () => {
@@ -125,5 +132,40 @@ describe('diagramas/modelo', () => {
     assert.equal(validarTitulo('').ok, false);
     assert.equal(validarTitulo('  Ok  ').ok, true);
     assert.equal(validarTitulo('  Ok  ').titulo, 'Ok');
+  });
+
+  it('TIPOS incluye swimlane y swimlane-flow', () => {
+    assert.ok(TIPOS.includes('swimlane'));
+    assert.ok(TIPOS.includes('swimlane-flow'));
+  });
+
+  it('normalizarPorTipo despacha por tipo', () => {
+    const clasico = {
+      title: 'C',
+      lanes: [{ id: 'a', name: 'A' }],
+      nodes: [{ id: 'n1', lane: 'a', type: 'start', label: 'Inicio' }],
+      edges: [],
+    };
+    const a = normalizarPorTipo('swimlane', clasico);
+    const b = normalizeModelo(clasico);
+    assert.deepEqual(a, b);
+
+    const pro = normalizarPorTipo('swimlane-flow', {
+      lanes: ['Cliente'],
+      nodes: [{ id: 'n1', lane: 'Cliente', type: 'start', label: 'Inicio' }],
+      edges: [],
+    });
+    assert.equal(pro.ok, true);
+    assert.equal(pro.modelo.kind, 'swimlane-flow');
+  });
+
+  it('modeloVacioPorTipo Pro vs clásico', () => {
+    const pro = modeloVacioPorTipo('swimlane-flow', 'X');
+    assert.deepEqual(
+      pro.lanes.map((l) => l.id),
+      ['cliente', 'tubroki', 'sistema'],
+    );
+    assert.equal(pro.nodes[0].type, 'start');
+    assert.deepEqual(modeloVacioPorTipo('swimlane', 'X'), modeloVacio('X'));
   });
 });

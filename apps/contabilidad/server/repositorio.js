@@ -1,142 +1,146 @@
 /**
- * Acceso a datos del schema `contabilidad`.
+ * Acceso a datos del schema `contabilidad` (Prisma).
  */
 
-import { toUiMov } from '../lib/finanzas.mjs';
+import { getPrisma } from '../../../shared/prisma.js'
+import { toUiMov } from '../lib/finanzas.mjs'
 
 function isoDate(d) {
-  if (!d) return null;
-  if (d instanceof Date) return d.toISOString().slice(0, 10);
-  return String(d).slice(0, 10);
+  if (!d) return null
+  if (d instanceof Date) return d.toISOString().slice(0, 10)
+  return String(d).slice(0, 10)
 }
 
 function mapMov(r) {
   return toUiMov({
     ...r,
     fecha: isoDate(r.fecha),
-  });
+    monto: r.monto != null ? Number(r.monto) : 0,
+    costo_directo: r.costo_directo != null ? Number(r.costo_directo) : null,
+  })
 }
 
-export async function listarMovimientos(sql) {
-  const filas = await sql`
-    select *
-    from contabilidad.movimientos
-    order by fecha desc, creado desc
-  `;
-  return filas.map(mapMov);
+function fechaDate(s) {
+  if (s instanceof Date) return s
+  return new Date(`${String(s).slice(0, 10)}T00:00:00.000Z`)
 }
 
-export async function obtenerMovimiento(sql, id) {
-  const [r] = await sql`
-    select * from contabilidad.movimientos where id = ${id}
-  `;
-  return r ? mapMov(r) : null;
+export async function listarMovimientos() {
+  const filas = await getPrisma().movimientos.findMany({
+    orderBy: [{ fecha: 'desc' }, { creado: 'desc' }],
+  })
+  return filas.map(mapMov)
 }
 
-export async function crearMovimiento(sql, d) {
-  const [r] = await sql`
-    insert into contabilidad.movimientos (
-      tipo, fecha, fecha_pendiente, estado, monto, quien, tercero, concepto, notas,
-      servicio, cantidad, costo_directo, medio, categoria, servicio_cac
-    ) values (
-      ${d.tipo}, ${d.fecha}::date, ${!!d.fecha_pendiente}, ${d.estado}, ${d.monto},
-      ${d.quien}, ${d.tercero}, ${d.concepto}, ${d.notas},
-      ${d.servicio}, ${d.cantidad}, ${d.costo_directo}, ${d.medio},
-      ${d.categoria}, ${d.servicio_cac}
-    )
-    returning *
-  `;
-  return mapMov(r);
+export async function obtenerMovimiento(id) {
+  const r = await getPrisma().movimientos.findUnique({ where: { id } })
+  return r ? mapMov(r) : null
 }
 
-export async function actualizarMovimiento(sql, id, d) {
-  const [r] = await sql`
-    update contabilidad.movimientos set
-      tipo = ${d.tipo},
-      fecha = ${d.fecha}::date,
-      fecha_pendiente = ${!!d.fecha_pendiente},
-      estado = ${d.estado},
-      monto = ${d.monto},
-      quien = ${d.quien},
-      tercero = ${d.tercero},
-      concepto = ${d.concepto},
-      notas = ${d.notas},
-      servicio = ${d.servicio},
-      cantidad = ${d.cantidad},
-      costo_directo = ${d.costo_directo},
-      medio = ${d.medio},
-      categoria = ${d.categoria},
-      servicio_cac = ${d.servicio_cac},
-      updated_at = now()
-    where id = ${id}
-    returning *
-  `;
-  return r ? mapMov(r) : null;
+export async function crearMovimiento(d) {
+  const r = await getPrisma().movimientos.create({
+    data: {
+      tipo: d.tipo,
+      fecha: fechaDate(d.fecha),
+      fecha_pendiente: !!d.fecha_pendiente,
+      estado: d.estado,
+      monto: d.monto,
+      quien: d.quien,
+      tercero: d.tercero,
+      concepto: d.concepto,
+      notas: d.notas,
+      servicio: d.servicio,
+      cantidad: d.cantidad,
+      costo_directo: d.costo_directo,
+      medio: d.medio,
+      categoria: d.categoria,
+      servicio_cac: d.servicio_cac,
+    },
+  })
+  return mapMov(r)
 }
 
-export async function eliminarMovimiento(sql, id) {
-  const [r] = await sql`
-    delete from contabilidad.movimientos where id = ${id} returning id
-  `;
-  return !!r;
+export async function actualizarMovimiento(id, d) {
+  try {
+    const r = await getPrisma().movimientos.update({
+      where: { id },
+      data: {
+        tipo: d.tipo,
+        fecha: fechaDate(d.fecha),
+        fecha_pendiente: !!d.fecha_pendiente,
+        estado: d.estado,
+        monto: d.monto,
+        quien: d.quien,
+        tercero: d.tercero,
+        concepto: d.concepto,
+        notas: d.notas,
+        servicio: d.servicio,
+        cantidad: d.cantidad,
+        costo_directo: d.costo_directo,
+        medio: d.medio,
+        categoria: d.categoria,
+        servicio_cac: d.servicio_cac,
+        updated_at: new Date(),
+      },
+    })
+    return mapMov(r)
+  } catch (e) {
+    if (e?.code === 'P2025') return null
+    throw e
+  }
 }
 
-export async function contarMovimientos(sql) {
-  const [r] = await sql`select count(*)::int as n from contabilidad.movimientos`;
-  return r?.n || 0;
+export async function eliminarMovimiento(id) {
+  try {
+    await getPrisma().movimientos.delete({ where: { id } })
+    return true
+  } catch (e) {
+    if (e?.code === 'P2025') return false
+    throw e
+  }
 }
 
-export async function listarMetas(sql) {
-  const filas = await sql`
-    select mes, unidades, ventas, utilidad, updated_at
-    from contabilidad.metas
-    order by mes desc
-  `;
-  const out = {};
+export async function contarMovimientos() {
+  return getPrisma().movimientos.count()
+}
+
+export async function listarMetas() {
+  const filas = await getPrisma().metas.findMany({ orderBy: { mes: 'desc' } })
+  const out = {}
   for (const f of filas) {
     out[f.mes] = {
       unidades: f.unidades || {},
       ventas: Number(f.ventas) || 0,
       utilidad: Number(f.utilidad) || 0,
-    };
+    }
   }
-  return out;
+  return out
 }
 
-export async function upsertMeta(sql, { mes, unidades, ventas, utilidad }) {
-  const [r] = await sql`
-    insert into contabilidad.metas (mes, unidades, ventas, utilidad, updated_at)
-    values (${mes}, ${sql.json(unidades)}, ${ventas}, ${utilidad}, now())
-    on conflict (mes) do update set
-      unidades = excluded.unidades,
-      ventas = excluded.ventas,
-      utilidad = excluded.utilidad,
-      updated_at = now()
-    returning mes, unidades, ventas, utilidad
-  `;
+export async function upsertMeta({ mes, unidades, ventas, utilidad }) {
+  const r = await getPrisma().metas.upsert({
+    where: { mes },
+    create: { mes, unidades, ventas, utilidad },
+    update: { unidades, ventas, utilidad, updated_at: new Date() },
+  })
   return {
     mes: r.mes,
     unidades: r.unidades || {},
     ventas: Number(r.ventas) || 0,
     utilidad: Number(r.utilidad) || 0,
-  };
+  }
 }
 
-export async function obtenerConfig(sql, clave = 'catalogo') {
-  const [r] = await sql`
-    select data from contabilidad.config where clave = ${clave}
-  `;
-  return r?.data || null;
+export async function obtenerConfig(clave = 'catalogo') {
+  const r = await getPrisma().config.findUnique({ where: { clave } })
+  return r?.data || null
 }
 
-export async function upsertConfig(sql, data, clave = 'catalogo') {
-  const [r] = await sql`
-    insert into contabilidad.config (clave, data, updated_at)
-    values (${clave}, ${sql.json(data)}, now())
-    on conflict (clave) do update set
-      data = excluded.data,
-      updated_at = now()
-    returning data
-  `;
-  return r.data;
+export async function upsertConfig(data, clave = 'catalogo') {
+  const r = await getPrisma().config.upsert({
+    where: { clave },
+    create: { clave, data },
+    update: { data, updated_at: new Date() },
+  })
+  return r.data
 }

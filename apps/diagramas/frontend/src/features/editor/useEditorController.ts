@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   EXAMPLES,
   TYPES,
@@ -19,6 +20,7 @@ import {
   ConflictError,
   irAAcceso,
 } from '../../api/client'
+import { diagramasKeys } from '../../api/queryClient'
 import type { SaveStatus } from '../../lib/types'
 
 export type Sel =
@@ -40,6 +42,7 @@ function validSel(m: DiagramModel, sel: Sel): Sel {
 }
 
 export function useEditorController(diagramId: string, initial: DiagramModel, initialRevision: number) {
+  const qc = useQueryClient()
   const [model, setModel] = useState(() => clone(initial))
   const [sel, setSel] = useState<Sel>(null)
   const [zoom, setZoom] = useState(1)
@@ -119,6 +122,9 @@ export function useEditorController(diagramId: string, initial: DiagramModel, in
       })
       setRevision(updated.revision)
       revisionRef.current = updated.revision
+      qc.setQueryData(diagramasKeys.detail(diagramId), updated)
+      // Solo marca stale: la biblioteca refetch al volver (no spamea GETs en autosave).
+      void qc.invalidateQueries({ queryKey: diagramasKeys.lists(), refetchType: 'none' })
       setSaveStatus('saved')
     } catch (e) {
       if (e instanceof AuthError) {
@@ -133,7 +139,7 @@ export function useEditorController(diagramId: string, initial: DiagramModel, in
       setSaveStatus('error')
       showToast(e instanceof Error ? e.message : 'No se pudo guardar')
     }
-  }, [diagramId, showToast])
+  }, [diagramId, qc, showToast])
 
   const scheduleSave = useCallback(() => {
     setSaveStatus('dirty')

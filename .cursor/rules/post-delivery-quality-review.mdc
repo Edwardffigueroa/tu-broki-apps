@@ -13,7 +13,7 @@ Tras un cambio no trivial, cerrar con **Nota pragmática** breve (solo lo que ap
 - **Security:** ¿alguna API sin `exigirSesion`? ¿open redirect? ¿secretos en logs/SQL? ¿schema expuesto?
 - **noindex:** ¿HTML nuevo lleva robots noindex? (SEO de marketing N/A)
 - **Architecture:** ¿API sigue thin → servicio → repo/modelo? ¿schema dedicado + grants?
-- **State of the art:** para herramientas internas lean, preferir simplicidad ESM + postgres.js sobre frameworks pesados
+- **State of the art:** ESM lean + Prisma multi-schema; Auth OTP con Supabase JS; sin PostgREST de apps
 - **Improve next:** 1–3 upgrades concretos (tests del modelo, smoke, tipos compartidos cliente/servidor)
 - **Bar alto:** validación en borde, 409/400 claros, sin filtrar errores internos
 

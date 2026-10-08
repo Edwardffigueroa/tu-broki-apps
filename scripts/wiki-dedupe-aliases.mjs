@@ -26,7 +26,7 @@ function cargarEnv() {
 }
 cargarEnv();
 
-const { getSql, cerrarSql } = await import(pathToFileURL(path.join(APPS_ROOT, 'shared/db.js')).href);
+const { getPrisma, cerrarPrisma, q } = await import(pathToFileURL(path.join(APPS_ROOT, 'shared/prisma.js')).href);
 const repo = await import(pathToFileURL(path.join(APPS_ROOT, 'apps/wiki/server/repositorio.js')).href);
 const { normalizeTitle } = await import(
   pathToFileURL(path.join(APPS_ROOT, 'apps/wiki/server/markdown.js')).href
@@ -89,7 +89,7 @@ async function dedupeFileAssets(sql) {
   for (const g of groups) {
     const ids = g.ids;
     for (let i = 1; i < ids.length; i += 1) {
-      await repo.softDelete(sql, ids[i]);
+      await repo.softDelete(ids[i]);
       n += 1;
     }
   }
@@ -122,10 +122,10 @@ async function renombrarSufijos(sql) {
     const parentBase = parent ? stripSuffix(parent.title) : null;
 
     // 1) Si el título base está libre → restaurar
-    if (await repo.tituloDisponible(sql, baseKey, p.id)) {
+    if (await repo.tituloDisponible(baseKey, p.id)) {
       try {
-        await repo.renombrarPaginaSimple(sql, p.id, base, baseKey);
-        await repo.upsertAlias(sql, baseKey, p.id);
+        await repo.renombrarPaginaSimple(p.id, base, baseKey);
+        await repo.upsertAlias(baseKey, p.id);
         renamed += 1;
         continue;
       } catch (e) {
@@ -137,14 +137,14 @@ async function renombrarSufijos(sql) {
     if (parentBase) {
       const qualified = `${parentBase} · ${base}`;
       const qKey = normalizeTitle(qualified);
-      if (qKey !== p.title_key && (await repo.tituloDisponible(sql, qKey, p.id))) {
+      if (qKey !== p.title_key && (await repo.tituloDisponible(qKey, p.id))) {
         try {
-          await repo.renombrarPaginaSimple(sql, p.id, qualified, qKey);
+          await repo.renombrarPaginaSimple(p.id, qualified, qKey);
           // Alias del basename solo si nadie más lo reclama como título exacto
           // (múltiples _LEEME: no aliasar basename; sí aliasar "padre · _leeme" ya es el título)
           renamed += 1;
           // Alias útil: basenames que apuntaban al título viejo con (N)
-          await repo.upsertAlias(sql, normalizeTitle(p.title), p.id);
+          await repo.upsertAlias(normalizeTitle(p.title), p.id);
           aliased += 1;
           byId.set(p.id, { id: p.id, title: qualified, title_key: qKey });
           continue;
@@ -172,7 +172,7 @@ async function renombrarSufijos(sql) {
         limit 1
       `;
       if (oldest) {
-        await repo.upsertAlias(sql, baseKey, oldest.id);
+        await repo.upsertAlias(baseKey, oldest.id);
         aliased += 1;
       }
     }
@@ -201,7 +201,7 @@ async function sembrarAliases(sql) {
       console.log(`  · sin match para alias «${alias}» → «${targetTitle}»`);
       continue;
     }
-    await repo.upsertAlias(sql, key, target.id);
+    await repo.upsertAlias(key, target.id);
     n += 1;
   }
 
@@ -228,7 +228,7 @@ async function sembrarAliases(sql) {
       }
     }
     if (best && bestScore >= 180) {
-      await repo.upsertAlias(sql, key, best.id);
+      await repo.upsertAlias(key, best.id);
       fuzzy += 1;
     }
   }
@@ -244,10 +244,10 @@ async function reresolveLinks(sql) {
   `;
   let fixed = 0;
   for (const row of pending) {
-    const id = await repo.resolverTargetId(sql, row.target_key);
+    const id = await repo.resolverTargetId(row.target_key);
     if (!id) continue;
     const r = await sql`
-      update wiki.page_links set target_page_id = ${id}
+      update wiki.page_links set target_page_id = ${id}::uuid
       where target_key = ${row.target_key} and target_page_id is null
       returning 1
     `;
@@ -265,7 +265,8 @@ async function main() {
     console.error('Falta DATABASE_URL');
     process.exit(1);
   }
-  const sql = getSql();
+  const db = getPrisma();
+  const sql = q(db);
   try {
     const deduped = await dedupeFileAssets(sql);
     const rename = await renombrarSufijos(sql);
@@ -284,7 +285,7 @@ async function main() {
     console.log('\n✅ Listo');
     console.log(JSON.stringify({ ...out, report: outPath }, null, 2));
   } finally {
-    await cerrarSql();
+    await cerrarPrisma();
   }
 }
 

@@ -8,6 +8,11 @@ const dir = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   plugins: [react()],
   base: '/diagramas/',
+  resolve: {
+    alias: {
+      '@flow': path.resolve(dir, '../lib/flow/index.mjs'),
+    },
+  },
   build: {
     outDir: path.resolve(dir, '../../../public/diagramas'),
     emptyOutDir: true,

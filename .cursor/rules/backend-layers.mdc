@@ -1,5 +1,5 @@
 ---
-description: Capas backend api → servicio → repositorio/modelo, http helpers y SQL
+description: Capas backend api → servicio → repositorio/modelo, http helpers y Prisma
 globs: api/**/*,handlers/**/*,apps/*/server/**/*,shared/**/*
 alwaysApply: false
 ---
@@ -16,16 +16,17 @@ handlers/<dominio>/<recurso>.js  → thin HTTP (GET|POST|PUT|PATCH|DELETE)
 apps/<slug>/server/servicio.js   → casos de uso, ErrorHttp, orquesta
        ↓
 apps/<slug>/server/modelo.js     → validación/normalización pura (sin I/O)
-apps/<slug>/server/repositorio.js → SQL con schema explícito (`roadmap.tareas`)
+apps/<slug>/server/repositorio.js → Prisma (Client y/o $queryRaw)
        ↓
-shared/db.js → getSql()  |  shared/http.js | shared/auth.js | shared/env.js
+shared/prisma.js → getPrisma()  |  shared/http.js | shared/auth.js | shared/env.js
 ```
 
 **Por qué entrypoints:** en Vercel sin Next cada archivo bajo `api/` cuenta como Serverless Function. Hobby permite 12. Consolidamos a 5: `auth`, `wiki`, `contabilidad`, `diagramas`, `roadmap`. `vercel.json` reescribe `/api/<dominio>/<recurso>` → `/api/<dominio>?__path=<recurso>`.
 
-**API/handlers nunca** hablan con SQL ni importan `postgres` directamente.  
+**API/handlers nunca** hablan con SQL ni importan `@prisma/client` directamente.  
 **Repositorio** no decide status HTTP.  
-**Servicio** traduce fallos de negocio a `ErrorHttp(status, mensaje, extra?)`.
+**Servicio** traduce fallos de negocio a `ErrorHttp(status, mensaje, extra?)`.  
+**Auth** usa Supabase JS solo para OTP (`shared/auth.js`); la sesión es cookie HMAC.
 
 ## Handler canónico
 
@@ -59,19 +60,27 @@ export const GET = manejar(async (request) => {
 
 Validación en `modelo.js` con forma `{ ok: true, … } | { ok: false, error }`. No lanzar desde el modelo.
 
-## SQL / postgres.js
+## Prisma / SQL
 
 ```js
-import { getSql } from '../../../shared/db.js';
-const sql = getSql();
-await sql`select … from wiki.pages where id = ${id}`;
-await sql.begin(async (tx) => { /* … */ });
+import { getPrisma } from '../../../shared/prisma.js';
+import { Prisma } from '@prisma/client';
+
+const db = getPrisma();
+await db.diagramas.findMany({ where: { archivedAt: null } });
+
+// SQL crudo (wiki FTS, funciones, multi-schema sin modelo tipado):
+await db.$queryRaw`select … from wiki.pages where id = ${id}::uuid`;
+await db.$transaction(async (tx) => { /* … */ });
 ```
 
-- Siempre **schema calificado**: `wiki.pages`, `roadmap.tareas`, `diagramas.diagramas`.
-- Tagged templates (anti injection). No concatenar SQL con input de usuario.
-- Pooler: `prepare: false`, `ssl: 'require'`, singleton en `globalThis` (serverless warm).
-- Scripts/tests: `cerrarSql()` al terminar.
+- Preferir Client tipado cuando el modelo Prisma cubre el caso.
+- `$queryRaw` / `$executeRaw` para FTS, `wiki.save_page_version`, triggers/SQL especial.
+- Siempre **schema calificado** en SQL crudo: `wiki.pages`, `roadmap.tareas`.
+- UUIDs en raw: castear `${id}::uuid` (params Prisma llegan como text).
+- Singleton en `globalThis` (`shared/prisma.js`) para warm starts en Vercel.
+- Scripts/tests: `cerrarPrisma()` al terminar.
+- Helpers de scripts: `q(db)` tagged template desde `shared/prisma.js`.
 
 ## Shared
 
@@ -79,7 +88,7 @@ await sql.begin(async (tx) => { /* … */ });
 |---|---|
 | `env.js` | `env(nombre)` / `verificarEnv()` — falla claro si falta var |
 | `http.js` | `ErrorHttp`, `json`, `leerJson`, `manejar` |
-| `auth.js` | cookie, token, `exigirSesion` |
-| `db.js` | `getSql`, `cerrarSql` |
+| `auth.js` | cookie, OTP Supabase, `exigirSesion` |
+| `prisma.js` | `getPrisma`, `cerrarPrisma`, `q` |
 
 No inventar otro cliente HTTP ni otro ORM. Mantener ESM `.js` en backend (no TypeScript en `api/` / `server/` hoy).

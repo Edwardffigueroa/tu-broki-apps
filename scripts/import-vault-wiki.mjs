@@ -33,7 +33,7 @@ function cargarEnv() {
 }
 cargarEnv();
 
-const { getSql, cerrarSql } = await import(pathToFileURL(path.join(APPS_ROOT, 'shared/db.js')).href);
+const { getPrisma, cerrarPrisma, q } = await import(pathToFileURL(path.join(APPS_ROOT, 'shared/prisma.js')).href);
 const repo = await import(pathToFileURL(path.join(APPS_ROOT, 'apps/wiki/server/repositorio.js')).href);
 const {
   AUTOR,
@@ -293,11 +293,11 @@ async function asegurarCarpeta(sql, folderPath, folderId) {
   const name = parts[parts.length - 1];
   const parentPath = parts.length > 1 ? parts.slice(0, -1).join('/') : null;
   const parentId = parentPath ? await asegurarCarpeta(sql, parentPath, folderId) : null;
-  const unico = await repo.sugerirTituloUnico(sql, name);
+  const unico = await repo.sugerirTituloUnico(name);
   if (unico.title !== name) {
     reporte.titleCollisions.push({ wanted: name, got: unico.title, path: folderPath });
   }
-  const page = await repo.crearPagina(sql, {
+  const page = await repo.crearPagina({
     title: unico.title,
     titleKey: unico.titleKey,
     parentId,
@@ -519,7 +519,8 @@ async function main() {
   const { folders, mdFiles, binFiles } = walkVault();
   console.log(`Inventario: ${folders.length} carpetas, ${mdFiles.length} md, ${binFiles.length} archivos`);
 
-  const sql = getSql();
+  const db = getPrisma();
+  const sql = q(db);
   try {
     let folderId = new Map();
     if (resume) {
@@ -578,7 +579,7 @@ async function main() {
           reporte.omitted.push({ path: file.rel, reason: v.error });
           continue;
         }
-        const asset = await repo.upsertAsset(sql, {
+        const asset = await repo.upsertAsset({
           buffer: buf,
           mimeType: mime,
           originalName: file.name,
@@ -588,11 +589,11 @@ async function main() {
         reporte.assets += 1;
 
         const titleBase = file.name;
-        const unico = await repo.sugerirTituloUnico(sql, titleBase);
+        const unico = await repo.sugerirTituloUnico(titleBase);
         if (unico.title !== titleBase) {
           reporte.titleCollisions.push({ wanted: titleBase, got: unico.title, path: file.rel });
         }
-        await repo.crearPaginaArchivo(sql, {
+        await repo.crearPaginaArchivo({
           title: unico.title,
           titleKey: unico.titleKey,
           parentId,
@@ -638,11 +639,11 @@ async function main() {
         const raw = fs.readFileSync(note.abs, 'utf8');
         const { metadata, body } = parseFrontmatter(raw);
         const content = reescribirEmbeds(body, note.rel, assetByPath, assetByBase);
-        const unico = await repo.sugerirTituloUnico(sql, note.title);
+        const unico = await repo.sugerirTituloUnico(note.title);
         if (unico.title !== note.title) {
           reporte.titleCollisions.push({ wanted: note.title, got: unico.title, path: note.rel });
         }
-        const page = await repo.crearPagina(sql, {
+        const page = await repo.crearPagina({
           title: unico.title,
           titleKey: unico.titleKey,
           parentId,
@@ -672,8 +673,8 @@ async function main() {
         t.startsWith('Índice del conocimiento Tubroki'),
       );
       if (!tieneIndice) {
-        const unico = await repo.sugerirTituloUnico(sql, 'Índice del conocimiento Tubroki');
-        const page = await repo.crearPagina(sql, {
+        const unico = await repo.sugerirTituloUnico('Índice del conocimiento Tubroki');
+        const page = await repo.crearPagina({
           title: unico.title,
           titleKey: unico.titleKey,
           parentId: null,
@@ -759,7 +760,7 @@ async function main() {
       ),
     );
   } finally {
-    await cerrarSql();
+    await cerrarPrisma();
   }
 }
 

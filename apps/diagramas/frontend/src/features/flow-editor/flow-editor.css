@@ -1,0 +1,928 @@
+/* Carriles Pro — prefijo fs- */
+.fs-shell {
+  --xy-background-color: var(--paper);
+  --xy-node-border-radius: 10px;
+  --xy-edge-stroke: var(--ink);
+  --xy-edge-stroke-selected: var(--accent);
+  --xy-edge-stroke-width: 1.85;
+  --xy-handle-background-color: var(--accent);
+  --xy-minimap-background-color: var(--panel);
+  --xy-controls-button-background-color: var(--panel);
+  --xy-background-pattern-color: color-mix(in srgb, var(--ink) 22%, transparent);
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  font-family: var(--f-ui);
+  color: var(--ink);
+  background: var(--bg);
+  animation: fm-fade-in 0.35s var(--ease) both;
+}
+
+.fs-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
+  box-shadow: var(--shadow);
+  flex-wrap: wrap;
+  animation: fm-fade-in 0.4s var(--ease) both;
+}
+
+.fs-title-input {
+  flex: 1 1 180px;
+  min-width: 140px;
+  font: 700 16px/1.2 var(--f-display);
+  letter-spacing: -0.02em;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  transition:
+    background var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+.fs-title-input:hover:not(:disabled) {
+  background: var(--panel2);
+}
+.fs-title-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: var(--panel);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.fs-topbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.fs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: 600 12.5px/1.2 var(--f-ui);
+  color: var(--ink);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition:
+    background var(--dur) var(--ease),
+    color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    transform 0.15s var(--ease),
+    opacity var(--dur) var(--ease);
+}
+.fs-btn .material-symbols-outlined {
+  font-size: 18px;
+  line-height: 1;
+}
+.fs-btn:hover:not(:disabled) {
+  background: var(--panel2);
+  transform: translateY(-1px);
+}
+.fs-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+.fs-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+.fs-btn-soft {
+  background: var(--panel2);
+  box-shadow: none;
+  color: var(--muted);
+}
+.fs-btn-soft:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel2));
+  color: var(--ink);
+}
+
+.fs-btn-ghost {
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  padding-left: 8px;
+  padding-right: 10px;
+}
+.fs-btn-ghost:hover:not(:disabled) {
+  background: var(--panel2);
+  color: var(--ink);
+}
+
+.fs-btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  box-shadow: 0 1px 2px rgba(67, 56, 202, 0.25);
+}
+.fs-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  background: var(--accent);
+  box-shadow: 0 4px 12px -4px rgba(67, 56, 202, 0.45);
+}
+
+.fs-btn-icon {
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--panel2);
+  box-shadow: none;
+}
+.fs-btn-icon:hover:not(:disabled) {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent-soft) 65%, var(--panel2));
+}
+
+.fs-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--panel2);
+}
+.fs-btn-group .fs-btn-icon {
+  background: transparent;
+}
+.fs-btn-group .fs-btn-icon:hover:not(:disabled) {
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.fs-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font: 600 11px/1 var(--f-ui);
+  background: var(--panel2);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.fs-pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.fs-topbar .save-pill.status-saved .fs-pill-dot,
+.fs-topbar .save-pill.saved .fs-pill-dot {
+  background: var(--ok-line);
+}
+.fs-topbar .save-pill.status-saving .fs-pill-dot,
+.fs-topbar .save-pill.saving .fs-pill-dot {
+  background: var(--accent);
+  animation: fm-soft-pulse 1.2s var(--ease) infinite;
+}
+.fs-topbar .save-pill.status-dirty .fs-pill-dot,
+.fs-topbar .save-pill.dirty .fs-pill-dot {
+  background: var(--warn-line);
+}
+.fs-topbar .save-pill.status-error .fs-pill-dot,
+.fs-topbar .save-pill.status-conflict .fs-pill-dot,
+.fs-topbar .save-pill.error .fs-pill-dot,
+.fs-topbar .save-pill.conflict .fs-pill-dot {
+  background: var(--err);
+}
+
+.fs-badge-pro {
+  font: 700 11px/1 var(--f-ui);
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.fs-menu-wrap {
+  position: relative;
+}
+
+.fs-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 40;
+  min-width: 260px;
+  padding: 6px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: fm-fade-up 0.18s var(--ease) both;
+}
+.fs-dropdown button,
+.fs-dropdown .fs-link-muted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  padding: 9px 10px;
+  font: 600 12.5px/1.2 var(--f-ui);
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+.fs-dropdown button:hover,
+.fs-dropdown .fs-link-muted:hover {
+  background: var(--panel2);
+  text-decoration: none;
+}
+.fs-dropdown .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--muted);
+}
+.fs-dropdown-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 2px 28px;
+  padding-left: 6px;
+  border-left: 2px solid var(--line2);
+}
+.fs-dropdown-sub button {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.fs-readonly-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--warn);
+  color: var(--ink);
+  font: 600 13px/1.3 var(--f-ui);
+}
+
+.fs-main {
+  display: flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  height: calc(100vh - 56px);
+  min-height: 320px;
+  position: relative;
+  overflow: hidden;
+}
+
+.fs-panel {
+  flex: 0 0 260px;
+  width: 260px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  z-index: 2;
+}
+.fs-panel-right {
+  border-right: none;
+  border-left: 1px solid var(--line);
+}
+
+.fs-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+.fs-tabs button {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+}
+.fs-tabs button.active {
+  background: var(--paper);
+  font-weight: 600;
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.fs-panel-toggle {
+  position: absolute;
+  z-index: 10;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 48px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  cursor: pointer;
+  border-radius: 0 6px 6px 0;
+}
+.fs-panel-toggle.right {
+  border-radius: 6px 0 0 6px;
+}
+/* Pegados al borde del lienzo (no al viewport): solo ocultan el aside. */
+.fs-panel-toggle.left { left: 0; }
+.fs-main:has(> .fs-panel-left) .fs-panel-toggle.left { left: 260px; }
+.fs-panel-toggle.right { right: 0; }
+.fs-main:has(> .fs-panel-right) .fs-panel-toggle.right { right: 260px; }
+
+.fs-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.fs-canvas-wrap {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.fs-canvas-wrap .react-flow {
+  width: 100%;
+  height: 100%;
+}
+
+.fs-shell > .docs-panel {
+  flex: 0 0 auto;
+  padding: 16px 20px 40px;
+  max-width: none;
+  background: var(--bg);
+  position: relative;
+  z-index: 1;
+}
+
+.fs-lane-headers {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  pointer-events: none;
+}
+.fs-lane-headers > * { pointer-events: auto; }
+
+.fs-corner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.fs-lane-header {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  border-left: 4px solid var(--accent);
+  border-bottom: 1px solid var(--line);
+  padding: 4px 6px;
+  box-sizing: border-box;
+  cursor: pointer;
+  overflow: hidden;
+}
+.fs-lane-header.selected { background: var(--accent-soft); }
+
+.fs-phase-headers {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 5;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+.fs-phase-header {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-right: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.fs-phase-header.selected { background: var(--accent-soft); }
+
+.fs-add-phase {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--line));
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 600 11px var(--f-ui);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fs-add-phase:hover {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.fs-header-text {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fs-lane-resize, .fs-phase-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+.fs-phase-resize {
+  top: 0;
+  bottom: 0;
+  left: auto;
+  width: 6px;
+  height: auto;
+  cursor: ew-resize;
+}
+
+.fs-node {
+  position: relative;
+  box-sizing: border-box;
+}
+.fs-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.fs-node-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 6px;
+  text-align: center;
+}
+.fs-node-label {
+  font: 600 13px var(--f-body);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fs-handle {
+  width: 8px;
+  height: 8px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.fs-node:hover .fs-handle,
+.fs-node.selected .fs-handle {
+  opacity: 1;
+}
+
+/* Carriles detrás de nodos/flechas */
+.fs-lanes-bg {
+  z-index: 0;
+}
+.fs-shell .react-flow__edges {
+  z-index: 3;
+}
+.fs-shell .react-flow__nodes {
+  z-index: 4;
+}
+
+/* Guías de carril / fase (el fondo pastel no debe ocultarlas) */
+.fs-lane-band {
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.fs-lane-band.drop-target {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent) !important;
+}
+.fs-slot-guide {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 0;
+  border-top: 1px dashed color-mix(in srgb, var(--ink) 16%, transparent);
+  pointer-events: none;
+}
+.fs-phase-band {
+  border-right: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+  background: transparent;
+  pointer-events: none;
+}
+.fs-phase-band.alt {
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
+}
+.fs-col-guide {
+  position: absolute;
+  top: 0;
+  width: 0;
+  border-left: 1px dashed color-mix(in srgb, var(--ink) 12%, transparent);
+  pointer-events: none;
+}
+
+/* Flechas — contrato §4. non-scaling-stroke: el grosor no se pierde al alejar. */
+.fs-shell .react-flow__edge-path.fs-edge,
+.fs-shell .fs-edge.react-flow__edge-path {
+  stroke: var(--ink) !important;
+  stroke-width: 2 !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.fs-shell .fs-edge-message {
+  stroke-dasharray: 6 4;
+}
+.fs-shell .fs-edge-return {
+  stroke: var(--warn-line) !important;
+  stroke-dasharray: 4 4;
+  stroke-width: 2.2 !important;
+}
+.fs-shell .fs-edge-async {
+  stroke-dasharray: 1 5;
+  stroke-linecap: round;
+  stroke-width: 1.85 !important;
+}
+.fs-shell .fs-edge-association {
+  stroke: var(--muted) !important;
+  stroke-dasharray: 1 5;
+  stroke-linecap: round;
+  stroke-width: 1.5 !important;
+}
+.fs-shell .fs-edge.selected,
+.fs-shell .react-flow__edge.selected .fs-edge {
+  stroke: var(--accent) !important;
+  stroke-width: 2.6 !important;
+}
+
+/* Marcadores de flecha más legibles sobre fondos pastel */
+.fs-shell .react-flow__edge marker path,
+.fs-shell .react-flow__edge marker circle {
+  vector-effect: non-scaling-stroke;
+}
+.fs-edge.dim { opacity: 0.28; }
+.fs-edge-label-wrap {
+  position: absolute;
+  font-size: 11px;
+}
+.fs-edge-label {
+  background: var(--paper);
+  border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--ink);
+  box-shadow: 0 1px 2px var(--shadow);
+}
+.fs-edge-center-handle {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--paper);
+  border: 2px solid var(--accent);
+  cursor: grab;
+}
+.fs-edge-center-handle.dragging { cursor: grabbing; }
+
+.fs-palette-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 8px;
+}
+.fs-palette-item {
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: grab;
+  font-size: 12px;
+  background: var(--paper);
+}
+.fs-palette-item.disabled { opacity: 0.5; pointer-events: none; }
+
+.fs-inspector {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.fs-inspector label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fs-inspector input,
+.fs-inspector select,
+.fs-inspector textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  font: inherit;
+}
+
+.fs-color-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fs-color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fs-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--ink) 25%, transparent);
+  padding: 0;
+  cursor: pointer;
+}
+.fs-color-swatch.active {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.fs-color-swatch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.fs-color-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.fs-color-row input[type='color'] {
+  width: 40px;
+  height: 32px;
+  padding: 2px;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+.fs-color-row input[type='text'] {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--f-mono);
+  font-size: 12px;
+}
+.fs-color-row .ghost {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+}
+.fs-node.dark-fill .fs-node-label,
+.fs-node.dark-fill .fs-inline-edit,
+.fs-node.dark-fill .fs-event-icon {
+  color: #f4f7fa;
+}
+
+.fs-json-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.fs-json-status {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+}
+.fs-json-status.ok { color: color-mix(in srgb, #0E9F6E 75%, var(--ink)); }
+.fs-json-status.err { color: #E63946; }
+
+.fs-code {
+  --fs-code-bg: #0f1419;
+  --fs-code-fg: #e6edf3;
+  --fs-code-muted: #6e7681;
+  --fs-code-gutter: #161b22;
+  flex: 1 1 auto;
+  min-height: 220px;
+  display: flex;
+  overflow: hidden;
+  background: var(--fs-code-bg);
+  border-bottom: 1px solid var(--line);
+  font: 400 12px/1.55 var(--f-mono);
+  color: var(--fs-code-fg);
+}
+.fs-code-gutter {
+  flex: 0 0 44px;
+  margin: 0;
+  padding: 10px 8px 10px 0;
+  text-align: right;
+  color: var(--fs-code-muted);
+  background: var(--fs-code-gutter);
+  border-right: 1px solid #30363d;
+  overflow: hidden;
+  user-select: none;
+  white-space: pre;
+  line-height: 1.55;
+}
+.fs-json-editor {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: none;
+  resize: none;
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--fs-code-fg);
+  caret-color: #79c0ff;
+  font: inherit;
+  line-height: 1.55;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+  outline: none;
+}
+.fs-json-editor:focus {
+  box-shadow: inset 2px 0 0 #58a6ff;
+}
+.fs-code[data-readonly='1'] .fs-json-editor {
+  opacity: 0.85;
+  cursor: default;
+}
+
+.fs-json-actions {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+.fs-json-actions button {
+  font-size: 11px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+.fs-json-actions button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.fs-json-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Más ancho al editar JSON para leer el formato. */
+.fs-panel-left.fs-panel-wide {
+  flex-basis: 380px;
+  width: 380px;
+}
+.fs-main:has(> .fs-panel-left.fs-panel-wide) .fs-panel-toggle.left {
+  left: 380px;
+}
+
+.fs-empty-canvas {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.fs-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fs-modal {
+  background: var(--paper);
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 8px 32px var(--shadow);
+}
+.fs-warn-list {
+  margin: 12px 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.fs-context-menu {
+  position: fixed;
+  z-index: 50;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px var(--shadow);
+  min-width: 180px;
+  padding: 4px;
+}
+.fs-context-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+.fs-context-menu button:hover { background: var(--panel2); }
+
+.chip-pro {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+}
+
+.library-new-wrap {
+  position: relative;
+  display: flex;
+}
+.library-new-caret {
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+.library-new-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px var(--shadow);
+  z-index: 20;
+  min-width: 200px;
+}
+.library-new-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.library-new-menu button:hover { background: var(--panel2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fs-handle { transition: none; }
+}

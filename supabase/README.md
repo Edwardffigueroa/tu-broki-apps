@@ -6,12 +6,15 @@ Un solo proyecto de Supabase para todas las apps internas. **Cada app vive en su
 |---|---|
 | Proyecto | `tubroki-apps` (ref `qovcebutzhovuxcqtdkb`, región `us-east-1`) |
 | Rol del backend | `tubroki_apps` — login, sin superuser, sin bypass RLS; solo grants sobre los schemas de las apps |
-| Conexión | Transaction pooler `aws-0-us-east-1.pooler.supabase.com:6543` (Vercel no tiene IPv6; el host directo lo exige) |
-| PostgREST | Ningún schema de apps está expuesto. Se entra solo por el backend (`shared/db.js`). |
+| Conexión runtime | Transaction pooler `:6543` + `pgbouncer=true` → `DATABASE_URL` (Prisma Client) |
+| Migraciones Prisma | Session pooler `:5432` → `DIRECT_URL` |
+| PostgREST | Ningún schema de apps expuesto. Acceso solo vía `shared/prisma.js`. Auth OTP = Supabase JS. |
 
 ## Migraciones
 
-Están en `migrations/` con prefijo de fecha + número + app:
+**Congelado:** este directorio `supabase/migrations/` es **histórico / solo lectura**. El schema ya está aplicado en el proyecto. **Nuevas migraciones van en `prisma/migrations/`** (`npm run db:migrate` / `db:deploy`). Baseline Prisma: `20261007220000_baseline` (marcado `--applied`, sin recrear tablas).
+
+Archivos históricos con prefijo de fecha + número + app:
 
 ```
 20261003_0001_roadmap_schema.sql       ← schema roadmap (tableros, tareas, respaldos)
@@ -24,9 +27,10 @@ Están en `migrations/` con prefijo de fecha + número + app:
 20261005_0008_roadmap_drop_docs.sql    ← roadmap: quita docs embebidos
 20261005_0009_contabilidad_schema.sql  ← schema contabilidad (movimientos, metas, config)
 20261005_0010_wiki_page_aliases.sql    ← aliases de wikilinks (title_key alternos → page_id)
+20261007_0011_diagramas_tipo_flow.sql  ← diagramas: tipo 'swimlane-flow' (Carriles Pro) + índice por tipo
 ```
 
-Se aplicaron vía Supabase MCP (`roadmap`/`shared` el 2026-10-03; `wiki` el 2026-10-05, nombres remotos `wiki_0003_schema`, `wiki_0004_extensions_grants`, `wiki_0005_sin_ciclos`, `wiki_0006_file_pages` y `wiki_0009_page_aliases`; `diagramas` el 2026-10-05; `contabilidad` el 2026-10-05 como `contabilidad_0009_schema`). Si usas la CLI (`supabase link --project-ref qovcebutzhovuxcqtdkb` y `supabase db push`), ten en cuenta esos nombres en el historial remoto.
+Se aplicaron vía Supabase MCP (`roadmap`/`shared` el 2026-10-03; `wiki` el 2026-10-05, nombres remotos `wiki_0003_schema`, `wiki_0004_extensions_grants`, `wiki_0005_sin_ciclos`, `wiki_0006_file_pages` y `wiki_0009_page_aliases`; `diagramas` el 2026-10-05; `contabilidad` el 2026-10-05 como `contabilidad_0009_schema`). `diagramas_0011_tipo_flow` aplicada el 2026-10-07 vía Supabase MCP (amplía el check de `tipo`; huella de clásicos sin cambio). Si usas la CLI (`supabase link --project-ref qovcebutzhovuxcqtdkb` y `supabase db push`), ten en cuenta esos nombres en el historial remoto.
 
 ## Agregar una app nueva (ej. `crm`)
 

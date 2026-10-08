@@ -14,18 +14,19 @@ Aplica a `apps/roadmap/frontend`, `apps/diagramas/frontend` y `apps/contabilidad
 - `build.outDir` → `../../../public/<slug>` (`emptyOutDir: true`)
 - Dev: `strictPort`, proxy `/api` y `/acceso` → `http://127.0.0.1:4747`
 - Build: `tsc -b && vite build`; lint con **oxlint**
-- Dependencias mínimas: React 19 + Vite 8. Diagramas añade `marked`, `dompurify`, `mermaid`. No meter Next, TanStack Query, Tailwind, shadcn ni RHF “porque tu-broki-app los usa”.
+- Dependencias mínimas: React 19 + Vite 8. Diagramas añade `marked`, `dompurify`, `mermaid` y `@xyflow/react` (solo en el chunk lazy de Carriles Pro).
+- **Server state:** `@tanstack/react-query` en `contabilidad` y `diagramas` (cache + invalidación). No meter Next, Tailwind, shadcn ni RHF “porque tu-broki-app los usa”. Roadmap y wiki HTML no usan React Query.
 
 ## Estructura tipica
 
 ```
 src/
-  api/          # fetch tipado, AuthError/ConflictError, irAAcceso()
+  api/          # fetch tipado, AuthError/ConflictError, irAAcceso(), queryClient.ts
   lib/          # types, constants, utils
-  state/ o features/  # store / páginas
+  state/ o features/  # UI store / páginas (filtros locales)
   components/ o features/*/
   styles/       # CSS con variables (:root tokens)
-  main.tsx, App.tsx
+  main.tsx, App.tsx  # QueryClientProvider donde aplique
 ```
 
 ## API client
@@ -36,6 +37,8 @@ fetch(url, { credentials: 'include', cache: 'no-store', … })
 // 409 → ConflictError (versión/revisión)
 ```
 
+- React Query envuelve las funciones de `api/client.ts`; no reemplaza el cliente HTTP.
+- Defaults lean: `staleTime` ~30s, `retry: 1`, AuthError sin retry + redirect en QueryCache/MutationCache.
 - Nunca guardar códigos OTP o el token de sesión en `localStorage`.
 - Cuerpos JSON; errores con `data.error` del backend.
 
@@ -48,8 +51,10 @@ fetch(url, { credentials: 'include', cache: 'no-store', … })
 
 ## Estado
 
-- **Roadmap:** un `RoadmapStore` (reducer + context) + debounce de guardado (~400 ms) del tablero completo.
-- **Diagramas:** controller por editor + páginas Library/Editor; motor en `src/core/carriles/` (puro, testeable).
+- **Contabilidad / Diagramas (server):** React Query (`useQuery` / `useMutation` + keys en `api/queryClient.ts`). Invalidar solo lo afectado.
+- **Contabilidad (UI):** `ContabilidadStore` — view, period, filtros, toast.
+- **Roadmap:** un `RoadmapStore` (reducer + context) + debounce de guardado (~400 ms) del tablero completo — sin React Query.
+- **Diagramas (editor):** controller local + debounce PATCH + 409; al guardar, `setQueryData` del detalle + invalidate de listas.
 - Evitar duplicar lógica de normalización: el servidor también valida; el cliente puede pre-normalizar para UX pero el contrato canónico vive en `server/modelo.js` / `core/carriles`.
 
 ## SEO / shell

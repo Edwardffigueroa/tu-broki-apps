@@ -33,17 +33,33 @@ async function req<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T
 }
 
+export async function fetchMovimientos(): Promise<Movimiento[]> {
+  const m = await req<{ movimientos: Movimiento[] }>(API.movimientos)
+  return m.movimientos || []
+}
+
+export async function fetchMetas(): Promise<Record<string, Meta>> {
+  const g = await req<{ metas: Record<string, Meta> }>(API.metas)
+  return g.metas || {}
+}
+
+export async function fetchConfig(): Promise<Cfg> {
+  const c = await req<{ config: Cfg }>(API.config)
+  return c.config
+}
+
+/** Prefetch paralelo (útil fuera de React Query). */
 export async function loadAll(): Promise<{
   movimientos: Movimiento[]
   metas: Record<string, Meta>
   config: Cfg
 }> {
-  const [m, g, c] = await Promise.all([
-    req<{ movimientos: Movimiento[] }>(API.movimientos),
-    req<{ metas: Record<string, Meta> }>(API.metas),
-    req<{ config: Cfg }>(API.config),
+  const [movimientos, metas, config] = await Promise.all([
+    fetchMovimientos(),
+    fetchMetas(),
+    fetchConfig(),
   ])
-  return { movimientos: m.movimientos || [], metas: g.metas || {}, config: c.config }
+  return { movimientos, metas, config }
 }
 
 export async function createMov(body: Partial<Movimiento>): Promise<Movimiento> {

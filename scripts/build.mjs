@@ -24,6 +24,16 @@ const PUBLIC = path.join(RAIZ, 'public');
 const VITE_APPS = new Set(['roadmap', 'diagramas', 'contabilidad']);
 
 export function build({ silencioso = false, skipVite = false } = {}) {
+  // Prisma Client debe existir antes del bundle estático (Vercel: postinstall + build).
+  const gen = spawnSync('npx', ['prisma', 'generate'], {
+    cwd: RAIZ,
+    stdio: silencioso ? 'ignore' : 'inherit',
+    shell: process.platform === 'win32',
+  });
+  if (gen.status !== 0) {
+    throw new Error(`prisma generate falló (exit ${gen.status})`);
+  }
+
   fs.rmSync(PUBLIC, { recursive: true, force: true });
   fs.mkdirSync(PUBLIC, { recursive: true });
 

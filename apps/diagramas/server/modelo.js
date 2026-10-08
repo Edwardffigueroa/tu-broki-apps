@@ -3,7 +3,21 @@
  * El contrato del lienzo es el mismo del prototipo Carriles.
  */
 
-export const TIPOS = ['swimlane'];
+import { normalizeFlow, modeloVacioFlow } from '../lib/flow/index.mjs';
+
+export const TIPOS = ['swimlane', 'swimlane-flow'];
+
+export function normalizarPorTipo(tipo, modelo) {
+  if (tipo === 'swimlane-flow') {
+    const r = normalizeFlow(modelo);
+    return r.ok ? { ok: true, modelo: r.modelo, warn: r.warn } : r;
+  }
+  return normalizeModelo(modelo);
+}
+
+export function modeloVacioPorTipo(tipo, titulo) {
+  return tipo === 'swimlane-flow' ? modeloVacioFlow(titulo) : modeloVacio(titulo);
+}
 
 const NODE_TYPES = new Set(['start', 'task', 'decision', 'document', 'end']);
 const ALIAS = {

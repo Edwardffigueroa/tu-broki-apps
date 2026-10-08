@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BASE } from '../../lib/constants'
+import { ThemeToggle } from '../../components/ThemeToggle'
 import { buildAiPrompt, toNarrative, TYPE_ORDER, TYPES, type NodeType } from '../../core/carriles'
 import type { SaveStatus } from '../../lib/types'
 import { CanvasSvg, typeIcon } from './CanvasSvg'
@@ -210,6 +211,7 @@ export function EditorPage({
             <option value="gastos">Aprobación de gastos</option>
             <option value="vacio">Diagrama vacío</option>
           </select>
+          <ThemeToggle />
           <button
             type="button"
             className="primary"

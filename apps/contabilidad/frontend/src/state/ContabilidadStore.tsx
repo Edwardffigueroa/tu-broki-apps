@@ -2,23 +2,25 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AuthError,
   createMov,
   deleteMov,
   downloadCsv,
-  irAAcceso,
-  loadAll,
+  fetchConfig,
+  fetchMetas,
+  fetchMovimientos,
   saveConfig,
   saveMeta,
   updateMov,
 } from '../api/client'
+import { contabilidadKeys } from '../api/queryClient'
 import { PERIOD_KEY, VIEW_KEY } from '../lib/constants'
 import type { Cfg, Filtros, Meta, Movimiento, ViewId } from '../lib/types'
 import { curMonthKey, DEF_CFG, mergeCfg } from '@finanzas'
@@ -62,18 +64,23 @@ function readLS(key: string, fallback: string) {
 }
 
 export function ContabilidadProvider({ children }: { children: ReactNode }) {
+  const qc = useQueryClient()
   const now = useMemo(() => new Date(), [])
   const cur = curMonthKey(now)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [movs, setMovs] = useState<Movimiento[]>([])
-  const [metas, setMetas] = useState<Record<string, Meta>>({})
-  const [cfg, setCfgState] = useState<Cfg>(mergeCfg(DEF_CFG) as Cfg)
-  const [cfgVersion, setCfgVersion] = useState(0)
-  const setCfg = useCallback((c: Cfg) => {
-    setCfgState(c)
-    setCfgVersion((v) => v + 1)
-  }, [])
+
+  const movsQ = useQuery({
+    queryKey: contabilidadKeys.movimientos,
+    queryFn: fetchMovimientos,
+  })
+  const metasQ = useQuery({
+    queryKey: contabilidadKeys.metas,
+    queryFn: fetchMetas,
+  })
+  const cfgQ = useQuery({
+    queryKey: contabilidadKeys.config,
+    queryFn: fetchConfig,
+  })
+
   const [view, setViewState] = useState<ViewId>(
     () => readLS(VIEW_KEY, 'resumen') as ViewId,
   )
@@ -95,27 +102,36 @@ export function ContabilidadProvider({ children }: { children: ReactNode }) {
     toastTimer.current = window.setTimeout(() => setToast(null), 2600)
   }, [])
 
-  const reload = useCallback(async () => {
-    try {
-      const data = await loadAll()
-      setMovs(data.movimientos)
-      setMetas(data.metas)
-      setCfg(mergeCfg(data.config) as Cfg)
-      setError(null)
-    } catch (e) {
-      if (e instanceof AuthError) {
-        irAAcceso()
-        return
-      }
-      setError(e instanceof Error ? e.message : 'Error al cargar')
-    } finally {
-      setLoading(false)
-    }
-  }, [setCfg])
+  const authRedirecting = [movsQ.error, metasQ.error, cfgQ.error].some(
+    (e) => e instanceof AuthError,
+  )
+  const failError = [movsQ.error, metasQ.error, cfgQ.error].find(
+    (e) => e && !(e instanceof AuthError),
+  )
+  const ready = movsQ.isSuccess && metasQ.isSuccess && cfgQ.isSuccess
+  // No pintar UI con DEF_CFG / listas vacías si falta alguna query o hay 401 en curso.
+  const loading = (!ready && !failError) || authRedirecting
+  const error = failError
+    ? failError instanceof Error
+      ? failError.message
+      : String(failError)
+    : null
 
-  useEffect(() => {
-    void reload()
-  }, [reload])
+  const movs = ready ? movsQ.data : []
+  const metas = ready ? metasQ.data : {}
+  const cfg = useMemo(
+    () => mergeCfg(ready && cfgQ.data ? cfgQ.data : DEF_CFG) as Cfg,
+    [ready, cfgQ.data],
+  )
+  const cfgVersion = cfgQ.dataUpdatedAt
+
+  const reload = useCallback(async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: contabilidadKeys.movimientos }),
+      qc.invalidateQueries({ queryKey: contabilidadKeys.metas }),
+      qc.invalidateQueries({ queryKey: contabilidadKeys.config }),
+    ])
+  }, [qc])
 
   const setView = (v: ViewId) => {
     setViewState(v)
@@ -137,28 +153,65 @@ export function ContabilidadProvider({ children }: { children: ReactNode }) {
 
   const setFilt = (f: Partial<Filtros>) => setFiltState((prev) => ({ ...prev, ...f }))
 
+  const movMut = useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string | undefined
+      data: Partial<Movimiento>
+    }) => {
+      if (id) return updateMov(id, data)
+      return createMov(data)
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: contabilidadKeys.movimientos })
+    },
+  })
+
+  const delMut = useMutation({
+    mutationFn: (id: string) => deleteMov(id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: contabilidadKeys.movimientos })
+    },
+  })
+
+  const metaMut = useMutation({
+    mutationFn: ({ mes, data }: { mes: string; data: Meta }) =>
+      saveMeta({ mes, ...data }),
+    onSuccess: (saved, { mes }) => {
+      qc.setQueryData<Record<string, Meta>>(contabilidadKeys.metas, (prev) => ({
+        ...(prev || {}),
+        [mes]: {
+          unidades: saved.unidades,
+          ventas: saved.ventas,
+          utilidad: saved.utilidad,
+        },
+      }))
+    },
+  })
+
+  const cfgMut = useMutation({
+    mutationFn: (data: Partial<Cfg>) => saveConfig(data),
+    onSuccess: (saved) => {
+      qc.setQueryData(contabilidadKeys.config, saved)
+    },
+  })
+
   const upsertMov = async (id: string | undefined, data: Partial<Movimiento>) => {
-    if (id) await updateMov(id, data)
-    else await createMov(data)
-    await reload()
+    await movMut.mutateAsync({ id, data })
   }
 
   const removeMov = async (id: string) => {
-    await deleteMov(id)
-    await reload()
+    await delMut.mutateAsync(id)
   }
 
   const upsertMeta = async (mes: string, data: Meta) => {
-    const saved = await saveMeta({ mes, ...data })
-    setMetas((prev) => ({
-      ...prev,
-      [mes]: { unidades: saved.unidades, ventas: saved.ventas, utilidad: saved.utilidad },
-    }))
+    await metaMut.mutateAsync({ mes, data })
   }
 
   const upsertCfg = async (data: Partial<Cfg>) => {
-    const saved = await saveConfig(data)
-    setCfg(mergeCfg(saved) as Cfg)
+    await cfgMut.mutateAsync(data)
   }
 
   const exportCsv = async () => {

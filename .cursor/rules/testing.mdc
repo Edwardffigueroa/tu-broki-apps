@@ -23,7 +23,7 @@ npm test   # node --test "tests/**/*.test.mjs"
 3. Serializers (CSV roadmap, narrativa diagramas)
 4. Reglas de negocio puras en `core/carriles/*`
 
-No mockear `postgres` en unitarias: el SQL se cubre con smoke manual/scripts.
+No mockear Prisma/`$queryRaw` en unitarias: el SQL se cubre con smoke manual/scripts.
 
 ## Smoke / seeds (DB real)
 

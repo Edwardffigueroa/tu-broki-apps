@@ -2,6 +2,8 @@
 
 Libro de movimientos, estado de resultados, CAC, rentabilidad por servicio, metas y catálogo. Datos compartidos en Supabase (schema `contabilidad`).
 
+**Server state (frontend):** `@tanstack/react-query` — queries separadas para movimientos / metas / config; mutaciones invalidan solo la key afectada. UI (vista, periodo, filtros) sigue en `ContabilidadStore`.
+
 ## Dev
 
 ```bash

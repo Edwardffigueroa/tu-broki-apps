@@ -2,8 +2,9 @@
  * Casos de uso de la app wiki. Las rutas de `api/wiki/*` solo llaman aquí.
  */
 
-import { getSql } from '../../../shared/db.js';
+import { Prisma } from '@prisma/client';
 import { ErrorHttp } from '../../../shared/http.js';
+import { getPrisma } from '../../../shared/prisma.js';
 import { AUTOR, validarTitulo, validarContenido, validarAsset, normalizarMime, iconoPorMime } from './modelo.js';
 import {
   parseFrontmatter,
@@ -14,7 +15,7 @@ import {
 import * as repo from './repositorio.js';
 
 export async function arbol({ papelera = false } = {}) {
-  return repo.listarArbol(getSql(), { papelera });
+  return repo.listarArbol({ papelera });
 }
 
 /**
@@ -22,7 +23,7 @@ export async function arbol({ papelera = false } = {}) {
  * Una sola respuesta para llenar el cache SWR sin N peticiones.
  */
 export async function bootstrap() {
-  const data = await repo.listarBootstrap(getSql());
+  const data = await repo.listarBootstrap();
   return {
     pages: data.pages,
     contents: data.contents,
@@ -32,7 +33,7 @@ export async function bootstrap() {
 }
 
 export async function obtener(id) {
-  const page = await repo.obtenerPagina(getSql(), id);
+  const page = await repo.obtenerPagina(id);
   if (!page) throw new ErrorHttp(404, 'Página no encontrada.', { code: 'page_not_found' });
   return page;
 }
@@ -42,14 +43,12 @@ export async function crear({ title, parentId, icon, content, metadata, source, 
   if (!v.ok) throw new ErrorHttp(400, v.error);
   const c = validarContenido(content ?? '');
   if (!c.ok) throw new ErrorHttp(400, c.error);
-
-  const sql = getSql();
   // Los títulos son únicos (como los nombres de nota en un vault): si choca,
   // se añade sufijo " (2)", " (3)"… igual que al importar.
-  const unico = await repo.sugerirTituloUnico(sql, v.titulo);
+  const unico = await repo.sugerirTituloUnico(v.titulo);
 
   try {
-    return await repo.crearPagina(sql, {
+    return await repo.crearPagina({
       title: unico.title,
       titleKey: unico.titleKey,
       parentId: parentId || null,
@@ -90,17 +89,15 @@ export async function crearDocumento({
   const tituloBase = (title || nombre.replace(/\.[^.]+$/, '') || nombre).trim();
   const v = validarTitulo(tituloBase);
   if (!v.ok) throw new ErrorHttp(400, v.error);
-
-  const sql = getSql();
-  const unico = await repo.sugerirTituloUnico(sql, v.titulo);
-  const asset = await repo.upsertAsset(sql, {
+  const unico = await repo.sugerirTituloUnico(v.titulo);
+  const asset = await repo.upsertAsset({
     buffer,
     mimeType: mime,
     originalName: nombre,
   });
 
   try {
-    return await repo.crearPaginaArchivo(sql, {
+    return await repo.crearPaginaArchivo({
       title: unico.title,
       titleKey: unico.titleKey,
       parentId: parentId || null,
@@ -120,8 +117,7 @@ export async function crearDocumento({
 
 /** Reemplaza el binario de una página-documento existente. */
 export async function reemplazarDocumento(id, { mimeType, base64, originalName }) {
-  const sql = getSql();
-  const existente = await repo.obtenerPagina(sql, id);
+  const existente = await repo.obtenerPagina(id);
   if (!existente || existente.deleted_at) {
     throw new ErrorHttp(404, 'Página no encontrada.', { code: 'page_not_found' });
   }
@@ -137,19 +133,19 @@ export async function reemplazarDocumento(id, { mimeType, base64, originalName }
   if (!vAsset.ok) throw new ErrorHttp(400, vAsset.error);
 
   const nombre = (originalName || existente.original_name || 'documento').trim();
-  const asset = await repo.upsertAsset(sql, {
+  const asset = await repo.upsertAsset({
     buffer,
     mimeType: mime,
     originalName: nombre,
   });
 
   try {
-    await repo.reemplazarAssetDePagina(sql, id, asset.id, { originalName: nombre });
+    await repo.reemplazarAssetDePagina(id, asset.id, { originalName: nombre });
     return (
-      (await repo.actualizarPaginaMeta(sql, id, {
+      (await repo.actualizarPaginaMeta(id, {
         icon: iconoPorMime(mime),
         author: AUTOR,
-      })) || (await repo.obtenerPagina(sql, id))
+      })) || (await repo.obtenerPagina(id))
     );
   } catch (e) {
     if (e.code === 'not_a_file_page') {
@@ -160,8 +156,7 @@ export async function reemplazarDocumento(id, { mimeType, base64, originalName }
 }
 
 export async function actualizar(id, body) {
-  const sql = getSql();
-  const existente = await repo.obtenerPagina(sql, id);
+  const existente = await repo.obtenerPagina(id);
   if (!existente || existente.deleted_at) {
     throw new ErrorHttp(404, 'Página no encontrada.', { code: 'page_not_found' });
   }
@@ -173,13 +168,13 @@ export async function actualizar(id, body) {
     if (!v.ok) throw new ErrorHttp(400, v.error);
     title = v.titulo;
     titleKey = v.titleKey;
-    const libre = await repo.tituloDisponible(sql, titleKey, id);
+    const libre = await repo.tituloDisponible(titleKey, id);
     if (!libre) throw new ErrorHttp(409, 'Ya existe una página con ese título.', { code: 'title_taken' });
   }
 
   let page;
   try {
-    page = await repo.actualizarPaginaMeta(sql, id, {
+    page = await repo.actualizarPaginaMeta(id, {
       title,
       titleKey,
       parentId: body.parent_id !== undefined ? body.parent_id : undefined,
@@ -208,13 +203,13 @@ export async function actualizar(id, body) {
 }
 
 export async function eliminar(id) {
-  const ok = await repo.softDelete(getSql(), id);
+  const ok = await repo.softDelete(id);
   if (!ok) throw new ErrorHttp(404, 'Página no encontrada.', { code: 'page_not_found' });
   return { ok: true };
 }
 
 export async function recuperar(id) {
-  const r = await repo.untrash(getSql(), id);
+  const r = await repo.untrash(id);
   if (!r.ok) throw new ErrorHttp(400, 'La página no está en la papelera.', { code: r.code });
   return r.page;
 }
@@ -232,7 +227,7 @@ export async function guardarBorrador(id, body) {
     throw new ErrorHttp(400, 'Falta draft_revision.', { code: 'missing_revision' });
   }
 
-  const r = await repo.guardarBorrador(getSql(), id, {
+  const r = await repo.guardarBorrador(id, {
     draftTitle: body.title ?? null,
     draftContent: c.content,
     draftRevision: body.draft_revision,
@@ -255,7 +250,7 @@ export async function guardarBorrador(id, body) {
 }
 
 export async function descartarBorrador(id) {
-  const r = await repo.descartarBorrador(getSql(), id);
+  const r = await repo.descartarBorrador(id);
   if (!r) throw new ErrorHttp(404, 'Página no encontrada.', { code: 'page_not_found' });
   return r;
 }
@@ -268,7 +263,7 @@ export async function guardarVersion(id, body) {
     if (!v.ok) throw new ErrorHttp(400, v.error);
   }
 
-  const r = await repo.guardarVersion(getSql(), {
+  const r = await repo.guardarVersion({
     pageId: id,
     baseVersionId: body.base_version_id,
     title: body.title ?? null,
@@ -294,17 +289,17 @@ export async function guardarVersion(id, body) {
 
 export async function listarVersiones(id) {
   await obtener(id);
-  return repo.listarVersiones(getSql(), id);
+  return repo.listarVersiones(id);
 }
 
 export async function obtenerVersion(id, vid) {
-  const v = await repo.obtenerVersion(getSql(), id, vid);
+  const v = await repo.obtenerVersion(id, vid);
   if (!v) throw new ErrorHttp(404, 'Versión no encontrada.', { code: 'version_not_found' });
   return v;
 }
 
 export async function restaurar(id, vid) {
-  const r = await repo.restaurarVersionConOrigen(getSql(), id, vid, AUTOR);
+  const r = await repo.restaurarVersionConOrigen(id, vid, AUTOR);
   if (!r.ok) {
     throw new ErrorHttp(
       r.code === 'page_not_found' ? 404 : 404,
@@ -317,21 +312,21 @@ export async function restaurar(id, vid) {
 
 export async function backlinks(id) {
   await obtener(id);
-  return repo.backlinks(getSql(), id);
+  return repo.backlinks(id);
 }
 
 export async function buscar(q, { limit = 50 } = {}) {
-  return repo.buscar(getSql(), q, { limit });
+  return repo.buscar(q, { limit });
 }
 
 export async function subirAsset({ buffer, mimeType, originalName }) {
   const v = validarAsset({ mimeType, sizeBytes: buffer.length, buffer });
   if (!v.ok) throw new ErrorHttp(400, v.error);
-  return repo.upsertAsset(getSql(), { buffer, mimeType, originalName });
+  return repo.upsertAsset({ buffer, mimeType, originalName });
 }
 
 export async function servirAsset(id) {
-  const asset = await repo.obtenerAsset(getSql(), id, { conContenido: true });
+  const asset = await repo.obtenerAsset(id, { conContenido: true });
   if (!asset) throw new ErrorHttp(404, 'Archivo no encontrado.', { code: 'asset_not_found' });
   return asset;
 }
@@ -350,7 +345,6 @@ export async function importarLote({
   assetMap = {},
   resolveLinks = false,
 }) {
-  const sql = getSql();
   const pathToId = new Map();
   const assetPathToId = new Map(Object.entries(assetMap || {}));
   const created = [];
@@ -366,7 +360,7 @@ export async function importarLote({
         omitted.push({ path: a.path, reason: v.error });
         continue;
       }
-      const asset = await repo.upsertAsset(sql, {
+      const asset = await repo.upsertAsset({
         buffer: buf,
         mimeType: mime,
         originalName: a.original_name || a.path?.split('/').pop(),
@@ -406,8 +400,8 @@ export async function importarLote({
         || (item.parent_path ? pathToId.get(item.parent_path) : null)
         || null;
 
-      const unico = await repo.sugerirTituloUnico(sql, baseTitle);
-      const page = await repo.crearPagina(sql, {
+      const unico = await repo.sugerirTituloUnico(baseTitle);
+      const page = await repo.crearPagina({
         title: unico.title,
         titleKey: unico.titleKey,
         parentId,
@@ -427,11 +421,11 @@ export async function importarLote({
   if (resolveLinks) {
     // Segunda pasada ya ocurre en crearPagina vía resolverEnlacesPendientes;
     // reportar sin resolver:
-    const filas = await sql`
+    const filas = await getPrisma().$queryRaw(Prisma.sql`
       select target_key, count(*)::int as n
       from wiki.page_links where target_page_id is null
       group by target_key order by n desc limit 50
-    `;
+    `);
     for (const f of filas) unresolved.push({ target_key: f.target_key, count: f.n });
   }
 
@@ -453,8 +447,7 @@ function escapeReg(s) {
  * { files: [{ path, content }], assets: [{ path, mime_type, base64 }] }
  */
 export async function exportarTodo() {
-  const sql = getSql();
-  const pages = await repo.listarArbol(sql, { papelera: false });
+  const pages = await repo.listarArbol({ papelera: false });
   const byId = new Map(pages.map((p) => [p.id, p]));
 
   function pathFor(page) {
@@ -475,7 +468,7 @@ export async function exportarTodo() {
   const idToExportName = new Map();
 
   for (const p of pages) {
-    const full = await repo.obtenerPagina(sql, p.id);
+    const full = await repo.obtenerPagina(p.id);
     if (!full?.version) continue;
     let content = full.version.content || '';
     const ids = content.match(/asset:([0-9a-f-]{36})/gi) || [];
@@ -502,7 +495,7 @@ export async function exportarTodo() {
 
   const assetsOut = [];
   if (assetIds.size) {
-    const rows = await repo.listarAssetsPorIds(sql, [...assetIds]);
+    const rows = await repo.listarAssetsPorIds([...assetIds]);
     for (const a of rows) {
       const ext = extFromMime(a.mime_type);
       const name = `${a.sha256.slice(0, 12)}${ext}`;

@@ -24,7 +24,7 @@ Si el pedido es features de propietarios, checkout, seguros, admin CRM → traba
 - **Package manager raíz:** **npm** (`package-lock.json`) — no pnpm
 - **Deploy:** Vercel (`vercel.json` → `buildCommand` + `outputDirectory: public`)
 - **API:** Vercel Functions en `api/**/*.js` (firma Web `Request` → `Response`)
-- **DB:** PostgreSQL (Supabase) vía `postgres` (`shared/db.js`), **transaction pooler :6543**, `prepare: false`
+- **DB:** PostgreSQL (Supabase) vía **Prisma** (`shared/prisma.js` + `prisma/`), multi-schema; runtime pooler `:6543` + `pgbouncer=true`; migraciones con `DIRECT_URL` `:5432`
 - **Auth:** email OTP (Supabase Auth del mismo proyecto) + allowlist `APPS_ALLOWED_EMAILS` + cookie httpOnly `tb_sesion` HMAC (`shared/auth.js`)
 - **UI Vite:** React 19 + TypeScript + Vite 8 (`apps/roadmap|diagramas|contabilidad/frontend`)
 - **UI HTML:** `home/` (launcher) + `apps/wiki/web/` (vanilla JS)
@@ -36,9 +36,10 @@ Si el pedido es features de propietarios, checkout, seguros, admin CRM → traba
 home/                 Launcher (/) y /acceso
 apps/<slug>/          app.json + server/ + (web/ | frontend/)
 api/<slug|auth>/      rutas HTTP delgadas
-shared/               auth, db, env, http
-supabase/migrations/  un schema por app
-scripts/              build.mjs, dev.mjs, seeds, smoke
+shared/               auth, prisma, env, http
+prisma/               schema + migraciones activas
+supabase/migrations/  histórico congelado (baseline ya en Prisma)
+scripts/              build.mjs, dev.mjs, prisma-env, seeds, smoke
 tests/                unitarias sin red (salvo smoke)
 public/               generado — NO versionar
 ```

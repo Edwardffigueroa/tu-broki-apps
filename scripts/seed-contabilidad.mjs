@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getSql, cerrarSql } from '../shared/db.js';
+import { getPrisma, cerrarPrisma } from '../shared/prisma.js';
 import {
   FIJOS_DEF,
   DEF_CFG,
@@ -83,23 +83,22 @@ function rowToMov(row) {
 }
 
 async function main() {
-  const sql = getSql();
   const cfg = {
     ...DEF_CFG,
     fijos: FIJOS_DEF.map((f) => ({ ...f })),
     precios: {},
   };
-  await repo.upsertConfig(sql, cfg);
+  await repo.upsertConfig(cfg);
   console.log('[seed:contabilidad] config/catalogo upserted');
 
-  const n = await repo.contarMovimientos(sql);
+  const n = await repo.contarMovimientos();
   const force = process.env.FORCE_SEED === '1';
   if (n > 0 && !force) {
     console.log(`[seed:contabilidad] ${n} movimiento(s) ya existen — skip CSV (FORCE_SEED=1 para forzar)`);
     return;
   }
   if (force && n > 0) {
-    await sql`delete from contabilidad.movimientos`;
+    await getPrisma().movimientos.deleteMany();
     console.log('[seed:contabilidad] FORCE_SEED: movimientos borrados');
   }
 
@@ -109,7 +108,7 @@ async function main() {
     if (d.tipo === 'ingreso' && !d.servicio) {
       throw new Error(`No se resolvió servicio: ${row['Servicio/Categoría']}`);
     }
-    await repo.crearMovimiento(sql, d);
+    await repo.crearMovimiento(d);
     console.log(`[seed:contabilidad] + ${d.tipo} ${d.fecha} $${d.monto}`);
   }
   console.log(`[seed:contabilidad] listo (${rows.length} movimientos)`);
@@ -120,4 +119,4 @@ main()
     console.error(e);
     process.exitCode = 1;
   })
-  .finally(() => cerrarSql());
+  .finally(() => cerrarPrisma());

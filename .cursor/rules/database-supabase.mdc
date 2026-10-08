@@ -1,32 +1,35 @@
 ---
-description: Schemas por app, rol tubroki_apps, migraciones y RLS en Supabase
-globs: supabase/**/*
+description: Schemas por app, rol tubroki_apps, Prisma + migraciones históricas Supabase
+globs: supabase/**/*,prisma/**/*
 alwaysApply: false
 ---
 
 # Base de datos — Supabase tu-broki-apps
 
-Proyecto compartido **`tubroki-apps`** (ref en `supabase/README.md`). Schema `public` vacío a propósito. **Una app = un schema** (`roadmap`, `wiki`, `diagramas`, …).
+Proyecto compartido **`tubroki-apps`** (ref en `supabase/README.md`). Schema `public` vacío a propósito. **Una app = un schema** (`roadmap`, `wiki`, `diagramas`, `contabilidad`, …).
 
 ## Conexión
 
 - Rol backend: `tubroki_apps` (login, sin superuser, sin bypass RLS)
-- Solo transaction pooler `:6543` (Vercel sin IPv6; host directo `db.*.supabase.co` lo exige)
-- PostgREST: **ningún** schema de apps expuesto — acceso solo vía `shared/db.js`
+- Runtime Prisma: transaction pooler `:6543` + `?pgbouncer=true` → `DATABASE_URL`
+- Migraciones Prisma: session pooler `:5432` → `DIRECT_URL` (evitar `db.*.supabase.co` sin IPv6)
+- PostgREST: **ningún** schema de apps expuesto — acceso solo vía `shared/prisma.js`
+- Auth OTP: `@supabase/supabase-js` en `shared/auth.js` (no PostgREST de apps)
 
 ## Migraciones
 
-Archivos en `supabase/migrations/`:
+| Estado | Ubicación |
+|---|---|
+| **Activas** | `prisma/migrations/` — `npm run db:migrate` / `db:deploy` |
+| **Congeladas (histórico)** | `supabase/migrations/` — referencia del schema inicial; **no** añadir SQL nuevo ahí |
 
-```
-AAAAMMDD_00NN_<tema>.sql
-```
+Baseline ya marcado como aplicado (`20261007220000_baseline`). Nunca `migrate reset` / `db push --force-reset` en prod.
 
-Orden numérico importa. Documentar en el SQL y actualizar `supabase/README.md` en el mismo cambio.
-
-Aplicación histórica: vía Supabase MCP / dashboard; nombres remotos pueden diferir del filename local — revisar README antes de `db push`.
+Scripts: `db:generate`, `db:migrate`, `db:deploy`, `db:status`, `db:studio` (ver `package.json` + `scripts/prisma-env.mjs`).
 
 ## Plantilla al crear schema de app
+
+En la migración Prisma (`migration.sql`), incluir grants/RLS:
 
 ```sql
 create schema if not exists <app>;
@@ -48,23 +51,26 @@ create policy backend_total on <app>.<tabla>
   for all to tubroki_apps using (true) with check (true);
 ```
 
+Actualizar `prisma/schema.prisma` (`schemas = [...]`) y regenerar el client.
+
 ## Schemas actuales (resumen)
 
 | Schema | Tablas clave | Notas |
 |---|---|---|
 | `roadmap` | `tableros`, `tareas`, `respaldos` | optimistic locking `tableros.version`; subtareas 1 nivel |
-| `wiki` | `pages`, `page_versions`, `page_links`, `assets`, … | versiones inmutables; FTS español; trigger anti-ciclos; `kind=file` |
+| `wiki` | `pages`, `page_versions`, `page_links`, `assets`, … | FTS/`save_page_version` vía `$queryRaw`; trigger anti-ciclos |
+| `diagramas` | `grupos`, `etiquetas`, `diagramas`, … | Prisma Client tipado |
 | `contabilidad` | `movimientos`, `metas`, `config` | libro diario + P&G + catálogo |
 
-Wiki también necesita grants a `extensions` (unaccent, digest) — ver migraciones `0004`.
+Wiki también necesita grants a `extensions` (unaccent, digest) — ver histórico `supabase/migrations/20261005_0004_*`.
 
 ## Musts
 
-- Consultas siempre `schema.tabla`
-- Contraseña del rol **nunca** en SQL versionado (placeholder al crear; valor real solo en `DATABASE_URL`)
+- Repositorio: Prisma Client o `$queryRaw` / `$executeRaw` con schema calificado
+- En `$queryRaw`, castear UUIDs (`${id}::uuid`) — Prisma envía params como text
+- Contraseña del rol **nunca** en SQL versionado
 - No abrir schemas a `anon`/`authenticated`
-- No usar Prisma / migraciones de `tu-broki-app` aquí
-- Cambios destructivos: pedir confirmación explícita (hay datos reales del equipo)
+- Cambios destructivos: pedir confirmación explícita (datos reales del equipo)
 
 ## Rotar password del rol
 
@@ -72,4 +78,4 @@ Wiki también necesita grants a `extensions` (unaccent, digest) — ver migracio
 alter role tubroki_apps with password '<nueva>';
 ```
 
-Actualizar `DATABASE_URL` en Vercel y `.env.local`.
+Actualizar `DATABASE_URL` y `DIRECT_URL` en Vercel y `.env.local`.

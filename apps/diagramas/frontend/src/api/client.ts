@@ -1,5 +1,5 @@
 import { API, RUTA_ACCESO } from '../lib/constants'
-import type { Diagrama, DiagramaResumen, Etiqueta, Grupo } from '../lib/types'
+import type { Diagrama, DiagramaResumen, DiagramaTipo, Etiqueta, Grupo } from '../lib/types'
 
 export class AuthError extends Error {
   constructor() {
@@ -51,7 +51,8 @@ export async function listarDiagramas(params: {
 }): Promise<DiagramaResumen[]> {
   const sp = new URLSearchParams()
   if (params.q) sp.set('q', params.q)
-  if (params.grupo) sp.set('grupo', params.grupo)
+  if (params.grupo === 'none' || params.grupo === '__sin_carpeta__') sp.set('grupo', 'none')
+  else if (params.grupo) sp.set('grupo', params.grupo)
   if (params.etiqueta) sp.set('etiqueta', params.etiqueta)
   if (params.archivados) sp.set('archivados', '1')
   const qs = sp.toString()
@@ -69,6 +70,7 @@ export async function crearDiagrama(body: {
   titulo?: string
   grupo_id?: string | null
   modelo?: unknown
+  tipo?: DiagramaTipo
 }): Promise<Diagrama> {
   return req<Diagrama>(API.diagramas, { method: 'POST', body: JSON.stringify(body) })
 }
