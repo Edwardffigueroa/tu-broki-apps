@@ -16,6 +16,9 @@
     "build:contabilidad": "npm run build --prefix apps/contabilidad/frontend",
     "dev": "node scripts/dev.mjs",
     "smoke:wiki": "node scripts/smoke-wiki.mjs",
+    "smoke:mcp": "node scripts/smoke-mcp.mjs",
+    "mcp:token": "node scripts/mcp-crear-token.mjs",
+    "mcp:revoke": "node scripts/mcp-revocar-token.mjs",
     "smoke:diagramas-flow": "node scripts/smoke-diagramas-flow.mjs",
     "seed:wiki": "node scripts/seed-wiki-ejemplos.mjs",
     "seed:wiki-docs": "node scripts/seed-wiki-documentos.mjs",
@@ -37,8 +40,11 @@
     "db:resolve": "node scripts/prisma-env.mjs migrate resolve"
   },
   "dependencies": {
+    "@modelcontextprotocol/node": "^2.1.1",
+    "@modelcontextprotocol/server": "^2.3.1",
     "@prisma/client": "^6.19.3",
-    "@supabase/supabase-js": "^2.117.2"
+    "@supabase/supabase-js": "^2.117.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "prisma": "^6.19.3"

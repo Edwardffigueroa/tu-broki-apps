@@ -28,6 +28,9 @@ Archivos históricos con prefijo de fecha + número + app:
 20261005_0009_contabilidad_schema.sql  ← schema contabilidad (movimientos, metas, config)
 20261005_0010_wiki_page_aliases.sql    ← aliases de wikilinks (title_key alternos → page_id)
 20261007_0011_diagramas_tipo_flow.sql  ← diagramas: tipo 'swimlane-flow' (Carriles Pro) + índice por tipo
+20261012_0012_wiki_version_source_mcp.sql ← enum version_source + 'mcp'
+20261012_0013_wiki_mcp_tokens_audit.sql ← wiki.mcp_tokens + wiki.mcp_audit
+20261012_0014_wiki_mcp_graph.sql       ← resolve_page, graph_*, mcp_purge (solo desde repositorio)
 ```
 
 Se aplicaron vía Supabase MCP (`roadmap`/`shared` el 2026-10-03; `wiki` el 2026-10-05, nombres remotos `wiki_0003_schema`, `wiki_0004_extensions_grants`, `wiki_0005_sin_ciclos`, `wiki_0006_file_pages` y `wiki_0009_page_aliases`; `diagramas` el 2026-10-05; `contabilidad` el 2026-10-05 como `contabilidad_0009_schema`). `diagramas_0011_tipo_flow` aplicada el 2026-10-07 vía Supabase MCP (amplía el check de `tipo`; huella de clásicos sin cambio). Si usas la CLI (`supabase link --project-ref qovcebutzhovuxcqtdkb` y `supabase db push`), ten en cuenta esos nombres en el historial remoto.

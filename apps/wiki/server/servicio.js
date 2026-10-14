@@ -539,3 +539,462 @@ function extFromMime(mime) {
 }
 
 export { normalizeTitle };
+
+/* ─── MCP: resolve / search / grafo / writes / files / meta ─── */
+
+const MCP_BASE64_MAX = 3 * 1024 * 1024;
+const UUID_RE_S = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function autorMcp(ctx) {
+  return ctx?.author || AUTOR;
+}
+
+export async function resolverRef(ref, { includeDeleted = false } = {}) {
+  return repo.resolvePageMeta(ref, { includeDeleted });
+}
+
+export async function resolverRefs(refs = []) {
+  const out = [];
+  for (const ref of refs) {
+    const hit = await repo.resolvePageMeta(ref);
+    if (hit) {
+      out.push({ ref, ok: true, ...hit });
+    } else {
+      const suggestions = await repo.sugerirTitulos(ref, { limit: 5 });
+      out.push({ ref, ok: false, suggestions });
+    }
+  }
+  return out;
+}
+
+export async function obtenerPorRef(ref, opts = {}) {
+  const meta = await repo.resolvePageMeta(ref, opts);
+  if (!meta) throw new ErrorHttp(404, `No encontré la página "${ref}".`, { code: 'page_not_found' });
+  return obtener(meta.id);
+}
+
+export async function buscarAvanzado(opts) {
+  return repo.buscarAvanzado(opts.q, opts);
+}
+
+export async function grep(opts) {
+  try {
+    return await repo.grepContenido(opts);
+  } catch (e) {
+    if (e.code === 'regex_invalida') {
+      throw new ErrorHttp(400, 'Expresión regular inválida.', { code: 'regex_invalida' });
+    }
+    throw e;
+  }
+}
+
+export async function linksDe(pageId, opts) {
+  await obtener(pageId);
+  return repo.linksDePagina(pageId, opts);
+}
+
+export async function vecinos(pageId, opts) {
+  await obtener(pageId);
+  return repo.graphNeighbors(pageId, opts);
+}
+
+export async function caminoCorto(fromId, toId, opts) {
+  await obtener(fromId);
+  await obtener(toId);
+  return repo.graphShortestPath(fromId, toId, opts);
+}
+
+export async function relacionadas(pageId, opts) {
+  await obtener(pageId);
+  return repo.graphRelated(pageId, opts);
+}
+
+export async function enlacesRotos(opts) {
+  return repo.enlacesRotos(opts);
+}
+
+export async function huerfanas(opts) {
+  return repo.paginasHuerfanas(opts);
+}
+
+export async function crearPaginaMcp(input, tokenCtx) {
+  const ifExists = input.if_exists || 'suffix';
+  const v = validarTitulo(input.title);
+  if (!v.ok) throw new ErrorHttp(400, v.error, { code: 'validacion' });
+  const existing = await repo.resolvePageMeta(v.titulo);
+  if (existing) {
+    if (ifExists === 'error') {
+      throw new ErrorHttp(409, `Ya existe la página "${existing.title}".`, {
+        code: 'page_exists',
+        id: existing.id,
+        title: existing.title,
+      });
+    }
+    if (ifExists === 'return') {
+      return { ...(await obtener(existing.id)), existed: true };
+    }
+  }
+
+  let parentId = input.parent_id || null;
+  if (input.parent) {
+    const p = await repo.resolvePageMeta(input.parent);
+    if (!p) throw new ErrorHttp(404, `Padre no encontrado: "${input.parent}".`, { code: 'parent_not_found' });
+    parentId = p.id;
+  }
+
+  const c = validarContenido(input.content ?? '');
+  if (!c.ok) throw new ErrorHttp(400, c.error, { code: 'validacion' });
+
+  const unico =
+    ifExists === 'suffix' || !existing
+      ? await repo.sugerirTituloUnico(v.titulo)
+      : { title: v.titulo, titleKey: v.titleKey };
+
+  try {
+    const page = await repo.crearPagina({
+      title: unico.title,
+      titleKey: unico.titleKey,
+      parentId,
+      icon: input.icon || null,
+      metadata: input.metadata || {},
+      content: c.content ?? '',
+      author: autorMcp(tokenCtx),
+      source: 'mcp',
+      message: input.message || 'Creada vía MCP',
+    });
+    return { ...page, existed: false };
+  } catch (e) {
+    if (e.code === '23505') {
+      throw new ErrorHttp(409, 'Ya existe una página con ese título.', { code: 'title_taken' });
+    }
+    throw e;
+  }
+}
+
+export async function guardarVersionMcp(id, body, tokenCtx) {
+  const page = await obtener(id);
+  if (page.draft_content != null && !body.discard_draft) {
+    throw new ErrorHttp(409, 'Hay un borrador humano sin publicar. Pasa discard_draft:true para sobrescribir.', {
+      code: 'draft_exists',
+      draft_revision: page.draft_revision,
+    });
+  }
+  if (body.discard_draft) {
+    await repo.descartarBorrador(id);
+  }
+
+  let baseVersionId = body.base_version_id || page.current_version_id;
+  if (body.expected_version != null) {
+    const n = Number(body.expected_version);
+    const ver = await repo.obtenerVersionPorNumero(id, n);
+    if (!ver) {
+      throw new ErrorHttp(409, `La versión esperada v${n} no existe.`, { code: 'version_conflict' });
+    }
+    if (page.current_version_id && ver.id !== page.current_version_id) {
+      throw new ErrorHttp(409, `Se esperaba v${n} pero la actual es otra.`, {
+        code: 'version_conflict',
+        current_version_id: page.current_version_id,
+      });
+    }
+    baseVersionId = ver.id;
+  }
+
+  const c = validarContenido(body.content);
+  if (!c.ok) throw new ErrorHttp(400, c.error, { code: 'validacion' });
+  if (body.title != null) {
+    const v = validarTitulo(body.title);
+    if (!v.ok) throw new ErrorHttp(400, v.error, { code: 'validacion' });
+  }
+
+  const r = await repo.guardarVersion({
+    pageId: id,
+    baseVersionId,
+    title: body.title ?? null,
+    content: c.content,
+    message: body.message || null,
+    author: autorMcp(tokenCtx),
+    source: 'mcp',
+  });
+
+  if (!r.ok) {
+    if (r.code === 'no_changes') {
+      return { ok: true, no_changes: true, page, version: page.version };
+    }
+    const map = {
+      version_conflict: [409, 'Conflicto de versión. Recarga o fuerza el guardado.'],
+      title_taken: [409, 'Ya existe otra página con ese título.'],
+      nothing_to_save: [422, 'No hay nada que guardar.'],
+      page_not_found: [404, 'Página no encontrada.'],
+    };
+    const [status, msg] = map[r.code] || [400, r.code];
+    throw new ErrorHttp(status, msg, { code: r.code, detail: r.detail });
+  }
+  return r;
+}
+
+export async function renombrarMcp(id, { newTitle, rewriteLinks = true, keepAlias = true }, tokenCtx) {
+  const page = await obtener(id);
+  const v = validarTitulo(newTitle);
+  if (!v.ok) throw new ErrorHttp(400, v.error, { code: 'validacion' });
+  const oldTitle = page.title;
+  const oldKey = page.title_key;
+
+  const updated = await actualizar(id, {
+    title: v.titulo,
+    rewrite_links: rewriteLinks,
+  });
+
+  // actualizar usa AUTOR; re-touch author via meta if needed — keepAlias
+  if (keepAlias && oldKey && oldKey !== v.titleKey) {
+    await repo.upsertAlias(oldTitle, id);
+  }
+
+  // Force source tracking is on versions; rename is meta-only.
+  void tokenCtx;
+  return { ...updated, previous_title: oldTitle };
+}
+
+export async function moverMcp(id, { newParent, position = 'end' }, tokenCtx) {
+  await obtener(id);
+  let parentId = null;
+  if (newParent != null && newParent !== '' && newParent !== '/') {
+    const p = await repo.resolvePageMeta(newParent);
+    if (!p) throw new ErrorHttp(404, `Padre no encontrado: "${newParent}".`, { code: 'parent_not_found' });
+    parentId = p.id;
+  }
+
+  let pos = undefined;
+  if (typeof position === 'string') {
+    if (position === 'start' || position === 'end') {
+      pos = await repo.siguientePosicionFraccionaria(parentId, { position });
+    }
+  } else if (position && typeof position === 'object') {
+    pos = await repo.siguientePosicionFraccionaria(parentId, {
+      after: position.after ? (await repo.resolvePageMeta(position.after))?.id : null,
+      before: position.before ? (await repo.resolvePageMeta(position.before))?.id : null,
+    });
+  }
+
+  void tokenCtx;
+  return actualizar(id, { parent_id: parentId, position: pos });
+}
+
+export async function eliminarCascada(id, { confirm = false } = {}) {
+  await obtener(id);
+  const ids = await repo.idsSubarbol(id);
+  if (ids.length > 1 && !confirm) {
+    throw new ErrorHttp(400, `Se borrarían ${ids.length} páginas (cascada). Confirma con confirm:true.`, {
+      code: 'confirm_required',
+      count: ids.length,
+    });
+  }
+  if (ids.length <= 1) {
+    await eliminar(id);
+    return { ok: true, count: 1, ids: [id] };
+  }
+  return repo.softDeleteCascade(id);
+}
+
+export async function purgar(id, { confirm = false, purgeOrphanAssets = false } = {}) {
+  const page = await repo.obtenerPagina(id);
+  if (!page) throw new ErrorHttp(404, 'Página no encontrada.', { code: 'page_not_found' });
+  if (!page.deleted_at) {
+    throw new ErrorHttp(400, 'Solo se puede purgar desde la papelera. Borra primero.', { code: 'not_in_trash' });
+  }
+  if (!confirm) {
+    throw new ErrorHttp(400, 'Purga permanente: confirma con confirm:true.', { code: 'confirm_required' });
+  }
+  const ok = await repo.purgarPagina(id);
+  if (!ok) throw new ErrorHttp(400, 'No se pudo purgar.', { code: 'not_in_trash' });
+  void purgeOrphanAssets;
+  return { ok: true };
+}
+
+export async function obtenerVersionPorNumero(pageId, n) {
+  await obtener(pageId);
+  const v = await repo.obtenerVersionPorNumero(pageId, n);
+  if (!v) throw new ErrorHttp(404, 'Versión no encontrada.', { code: 'version_not_found' });
+  return v;
+}
+
+export async function restaurarVersionMcp(id, vidOrNum, tokenCtx, { discard_draft = false } = {}) {
+  const page = await obtener(id);
+  if (page.draft_content != null && !discard_draft) {
+    throw new ErrorHttp(409, 'Hay un borrador humano. Pasa discard_draft:true para continuar.', {
+      code: 'draft_exists',
+    });
+  }
+  if (discard_draft) await repo.descartarBorrador(id);
+
+  let versionId = vidOrNum;
+  if (!UUID_RE_S.test(String(vidOrNum))) {
+    const v = await repo.obtenerVersionPorNumero(id, Number(vidOrNum));
+    if (!v) throw new ErrorHttp(404, 'Versión no encontrada.', { code: 'version_not_found' });
+    versionId = v.id;
+  }
+
+  const r = await repo.restaurarVersionConOrigen(id, versionId, autorMcp(tokenCtx));
+  if (!r.ok) {
+    throw new ErrorHttp(404, r.code === 'page_not_found' ? 'Página no encontrada.' : 'Versión no encontrada.', {
+      code: r.code,
+    });
+  }
+  return r;
+}
+
+function esIpPrivada(hostname) {
+  const h = String(hostname || '').toLowerCase();
+  if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0') return true;
+  if (h.endsWith('.local') || h.endsWith('.internal')) return true;
+  const m = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (m) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true;
+  }
+  return false;
+}
+
+export async function subirDesdeUrl({ url, filename, parentId, parent, title, note }, tokenCtx) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new ErrorHttp(400, 'URL inválida.', { code: 'url_no_permitida' });
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new ErrorHttp(400, 'Solo se permiten URLs https.', { code: 'url_no_permitida' });
+  }
+  if (esIpPrivada(parsed.hostname)) {
+    throw new ErrorHttp(400, 'URL no permitida (host privado).', { code: 'url_no_permitida' });
+  }
+
+  let pid = parentId || null;
+  if (parent) {
+    const p = await repo.resolvePageMeta(parent);
+    if (!p) throw new ErrorHttp(404, `Padre no encontrado: "${parent}".`, { code: 'parent_not_found' });
+    pid = p.id;
+  }
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
+  let res;
+  try {
+    res = await fetch(parsed.href, {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: { 'User-Agent': 'TuBroki-Wiki-MCP/1.0' },
+    });
+  } catch (e) {
+    throw new ErrorHttp(400, `No se pudo descargar: ${e.message}`, { code: 'url_no_permitida' });
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) throw new ErrorHttp(400, `HTTP ${res.status} al descargar.`, { code: 'url_no_permitida' });
+
+  const finalUrl = new URL(res.url);
+  if (finalUrl.protocol !== 'https:' || esIpPrivada(finalUrl.hostname)) {
+    throw new ErrorHttp(400, 'Redirect a host no permitido.', { code: 'url_no_permitida' });
+  }
+
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (buf.length > 20 * 1024 * 1024) {
+    throw new ErrorHttp(400, 'El archivo supera 20 MB.', { code: 'payload_grande' });
+  }
+
+  const mimeType = (res.headers.get('content-type') || 'application/octet-stream').split(';')[0].trim();
+  const name =
+    filename ||
+    decodeURIComponent(finalUrl.pathname.split('/').pop() || '') ||
+    title ||
+    'archivo';
+
+  const page = await crearDocumento({
+    title: title || name.replace(/\.[^.]+$/, ''),
+    parentId: pid,
+    mimeType,
+    base64: buf.toString('base64'),
+    originalName: name,
+    note: note || '',
+  });
+  void tokenCtx;
+  return page;
+}
+
+export async function urlDescargaFirmada(assetId, ttlSec = 600, origin = '') {
+  const asset = await repo.obtenerAsset(assetId, { conContenido: false });
+  if (!asset) throw new ErrorHttp(404, 'Archivo no encontrado.', { code: 'asset_not_found' });
+  const { urlFirmada } = await import('../mcp/signed-url.mjs');
+  const base =
+    origin ||
+    (process.env.MCP_PUBLIC_URL || '').replace(/\/api\/mcp\/?$/, '') ||
+    globalThis.__tb_mcp_origin ||
+    '';
+  return {
+    url: urlFirmada(base, assetId, ttlSec),
+    mime_type: asset.mime_type,
+    size_bytes: Number(asset.size_bytes),
+    original_name: asset.original_name,
+    expires_in: Math.min(Math.max(Number(ttlSec) || 600, 60), 3600),
+  };
+}
+
+export async function listarArchivos(opts) {
+  return repo.listarArchivos(opts);
+}
+
+export async function listarAliases(opts = {}) {
+  return repo.listarAliasesDePagina(opts.pageId || null);
+}
+
+export async function agregarAlias(pageId, alias) {
+  await obtener(pageId);
+  const v = validarTitulo(alias);
+  if (!v.ok) throw new ErrorHttp(400, v.error, { code: 'validacion' });
+  return repo.upsertAlias(alias, pageId);
+}
+
+export async function quitarAlias(alias) {
+  const ok = await repo.quitarAlias(alias);
+  if (!ok) throw new ErrorHttp(404, 'Alias no encontrado.', { code: 'page_not_found' });
+  return { ok: true };
+}
+
+export async function listarTags(opts) {
+  return repo.listarTags(opts);
+}
+
+export async function recientes(opts) {
+  return repo.versionesRecientes(opts);
+}
+
+export async function stats() {
+  return repo.statsWiki();
+}
+
+export async function whoamiMcp(tokenCtx) {
+  const s = await stats();
+  return {
+    label: tokenCtx.label,
+    email: tokenCtx.email,
+    scopes: [...tokenCtx.scopes],
+    author: tokenCtx.author,
+    stats: { pages: s.pages, files: s.files, trash: s.trash, broken_links: s.broken_links },
+  };
+}
+
+export function validarBase64Mcp(base64) {
+  const buf = Buffer.from(base64 || '', 'base64');
+  if (buf.length > MCP_BASE64_MAX) {
+    throw new ErrorHttp(400, 'Payload base64 > 3 MB. Usa wiki_upload_from_url.', {
+      code: 'payload_grande',
+      hint: 'Sube el archivo a una URL https y usa wiki_upload_from_url.',
+    });
+  }
+  return buf;
+}
+
+export { MCP_BASE64_MAX };

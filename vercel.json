@@ -11,6 +11,7 @@
     { "source": "/api/contabilidad/:path*", "destination": "/api/contabilidad" },
     { "source": "/api/diagramas/:path*", "destination": "/api/diagramas" },
     { "source": "/api/roadmap/:path*", "destination": "/api/roadmap" },
+    { "source": "/api/mcp/:path*", "destination": "/api/mcp" },
     { "source": "/roadmap", "destination": "/roadmap/index.html" },
     { "source": "/roadmap/", "destination": "/roadmap/index.html" },
     { "source": "/diagramas", "destination": "/diagramas/index.html" },

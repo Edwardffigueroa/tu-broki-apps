@@ -993,3 +993,565 @@ export async function sugerirTituloUnico(baseTitle) {
 }
 
 export { sincronizarEnlaces, filaVersion };
+
+/* ─── MCP: resolve / search / grafo / aliases / purge / stats ─── */
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function resolvePageId(ref, { includeDeleted = false } = {}) {
+  const raw = String(ref || '').trim();
+  if (!raw) return null;
+  const [row] = await q(getPrisma())`
+    select wiki.resolve_page(${raw}, ${includeDeleted}) as id
+  `;
+  return row?.id || null;
+}
+
+export async function resolvePageMeta(ref, { includeDeleted = false } = {}) {
+  const raw = String(ref || '').trim();
+  if (!raw) return null;
+
+  if (UUID_RE.test(raw)) {
+    const [byId] = await q(getPrisma())`
+      select id, title, title_key from wiki.pages
+      where id = ${raw}::uuid and (${includeDeleted} or deleted_at is null)
+      limit 1
+    `;
+    if (byId) return { id: byId.id, title: byId.title, title_key: byId.title_key, via: 'id' };
+  }
+
+  const key = normalizeTitle(raw);
+  const [byTitle] = await q(getPrisma())`
+    select id, title, title_key from wiki.pages
+    where title_key = ${key}
+      and (${includeDeleted} or deleted_at is null)
+    order by deleted_at nulls first
+    limit 1
+  `;
+  if (byTitle) return { id: byTitle.id, title: byTitle.title, title_key: byTitle.title_key, via: 'title' };
+
+  const [byAlias] = await q(getPrisma())`
+    select p.id, p.title, p.title_key, a.alias_key
+    from wiki.page_aliases a
+    join wiki.pages p on p.id = a.page_id
+    where a.alias_key = ${key}
+      and (${includeDeleted} or p.deleted_at is null)
+    order by p.deleted_at nulls first
+    limit 1
+  `;
+  if (byAlias) {
+    return { id: byAlias.id, title: byAlias.title, title_key: byAlias.title_key, via: 'alias', alias_key: byAlias.alias_key };
+  }
+  return null;
+}
+
+export async function sugerirTitulos(qtext, { limit = 5 } = {}) {
+  const key = normalizeTitle(qtext);
+  if (!key) return [];
+  const filas = await q(getPrisma())`
+    select title from wiki.pages
+    where deleted_at is null
+      and (title_key like ${key + '%'} or title_key % ${key})
+    order by similarity(title_key, ${key}) desc nulls last, title
+    limit ${limit}
+  `.catch(async () => q(getPrisma())`
+    select title from wiki.pages
+    where deleted_at is null and title_key like ${'%' + key + '%'}
+    order by title limit ${limit}
+  `);
+  return filas.map((r) => r.title);
+}
+
+export async function buscarAvanzado(texto, { limit = 50, mode = 'fts', under = null, kind = null } = {}) {
+  const query = String(texto || '').trim();
+  if (!query && mode !== 'title') return [];
+  const lim = Math.min(Math.max(Number(limit) || 50, 1), 100);
+
+  let underIds = null;
+  if (under) {
+    underIds = await idsSubarbol(under);
+    if (!underIds.length) return [];
+  }
+
+  if (mode === 'title') {
+    const key = normalizeTitle(query);
+    const filas = underIds
+      ? await q(getPrisma())`
+          select id, title, title_key, parent_id, kind
+          from wiki.pages
+          where deleted_at is null
+            and id in (${Prisma.join(underIds)})
+            and (${kind}::text is null or kind = ${kind})
+            and (title_key like ${'%' + key + '%'} or lower(title) like ${'%' + query.toLowerCase() + '%'})
+          order by title limit ${lim}
+        `
+      : await q(getPrisma())`
+          select id, title, title_key, parent_id, kind
+          from wiki.pages
+          where deleted_at is null
+            and (${kind}::text is null or kind = ${kind})
+            and (title_key like ${'%' + key + '%'} or lower(title) like ${'%' + query.toLowerCase() + '%'})
+          order by title limit ${lim}
+        `;
+    return filas.map((r) => ({
+      id: r.id, title: r.title, title_key: r.title_key, parent_id: r.parent_id,
+      kind: r.kind, rank: 1, match: 'title', headline: r.title,
+    }));
+  }
+
+  if (mode === 'literal') {
+    const like = `%${query}%`;
+    const filas = underIds
+      ? await q(getPrisma())`
+          select p.id, p.title, p.title_key, p.parent_id, p.kind,
+                 left(coalesce(v.content, ''), 200) as headline
+          from wiki.pages p
+          left join wiki.page_versions v on v.id = p.current_version_id
+          where p.deleted_at is null
+            and p.id in (${Prisma.join(underIds)})
+            and (${kind}::text is null or p.kind = ${kind})
+            and (p.title ilike ${like} or coalesce(v.content, '') ilike ${like})
+          order by p.title limit ${lim}
+        `
+      : await q(getPrisma())`
+          select p.id, p.title, p.title_key, p.parent_id, p.kind,
+                 left(coalesce(v.content, ''), 200) as headline
+          from wiki.pages p
+          left join wiki.page_versions v on v.id = p.current_version_id
+          where p.deleted_at is null
+            and (${kind}::text is null or p.kind = ${kind})
+            and (p.title ilike ${like} or coalesce(v.content, '') ilike ${like})
+          order by p.title limit ${lim}
+        `;
+    return filas.map((r) => ({
+      id: r.id, title: r.title, title_key: r.title_key, parent_id: r.parent_id,
+      kind: r.kind, rank: 1, match: 'content', headline: r.headline || r.title,
+    }));
+  }
+
+  // fts — reusa buscar y filtra
+  const base = await buscar(query, { limit: lim * 2 });
+  let out = base;
+  if (kind) {
+    const ids = out.map((r) => r.id);
+    if (!ids.length) return [];
+    const kinds = await q(getPrisma())`
+      select id, kind from wiki.pages where id in (${Prisma.join(ids)})
+    `;
+    const map = new Map(kinds.map((k) => [k.id, k.kind]));
+    out = out.filter((r) => map.get(r.id) === kind).map((r) => ({ ...r, kind: kind }));
+  }
+  if (underIds) {
+    const set = new Set(underIds);
+    out = out.filter((r) => set.has(r.id));
+  }
+  return out.slice(0, lim);
+}
+
+export async function idsSubarbol(rootId) {
+  const filas = await q(getPrisma())`
+    with recursive t as (
+      select id from wiki.pages where id = ${rootId}::uuid and deleted_at is null
+      union all
+      select p.id from wiki.pages p join t on p.parent_id = t.id where p.deleted_at is null
+    )
+    select id from t
+  `;
+  return filas.map((r) => r.id);
+}
+
+export async function grepContenido({ pattern, regex = false, caseSensitive = false, under = null, maxMatches = 50 } = {}) {
+  const lim = Math.min(Math.max(Number(maxMatches) || 50, 1), 200);
+  let underIds = null;
+  if (under) {
+    underIds = await idsSubarbol(under);
+    if (!underIds.length) return [];
+  }
+
+  const filas = underIds
+    ? await q(getPrisma())`
+        select p.id, p.title, coalesce(v.content, '') as content
+        from wiki.pages p
+        left join wiki.page_versions v on v.id = p.current_version_id
+        where p.deleted_at is null and p.kind = 'page' and p.id in (${Prisma.join(underIds)})
+      `
+    : await q(getPrisma())`
+        select p.id, p.title, coalesce(v.content, '') as content
+        from wiki.pages p
+        left join wiki.page_versions v on v.id = p.current_version_id
+        where p.deleted_at is null and p.kind = 'page'
+      `;
+
+  let re;
+  try {
+    const flags = caseSensitive ? 'g' : 'gi';
+    re = regex ? new RegExp(pattern, flags) : new RegExp(escapeReg(pattern), flags);
+  } catch {
+    throw Object.assign(new Error('regex_invalida'), { code: 'regex_invalida' });
+  }
+
+  const matches = [];
+  for (const row of filas) {
+    const lines = String(row.content || '').split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      re.lastIndex = 0;
+      if (!re.test(lines[i])) continue;
+      matches.push({
+        page_id: row.id,
+        title: row.title,
+        line: i + 1,
+        text: lines[i].slice(0, 240),
+      });
+      if (matches.length >= lim) return matches;
+    }
+  }
+  return matches;
+}
+
+export async function linksDePagina(pageId, { direction = 'both', includeBroken = false, limit = 100 } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 100, 1), 500);
+  const out = { out: [], in: [], broken: [] };
+
+  if (direction === 'out' || direction === 'both') {
+    const filas = await q(getPrisma())`
+      select pl.target_key, pl.target_page_id, p.title as target_title
+      from wiki.page_links pl
+      left join wiki.pages p on p.id = pl.target_page_id and p.deleted_at is null
+      where pl.source_page_id = ${pageId}::uuid
+      order by pl.target_key
+      limit ${lim}
+    `;
+    for (const r of filas) {
+      if (r.target_page_id && r.target_title) {
+        out.out.push({ target_key: r.target_key, page_id: r.target_page_id, title: r.target_title });
+      } else if (includeBroken || !r.target_page_id) {
+        out.broken.push({ target_key: r.target_key });
+      }
+    }
+  }
+
+  if (direction === 'in' || direction === 'both') {
+    const filas = await q(getPrisma())`
+      select pl.source_page_id, pl.target_key, p.title as source_title
+      from wiki.page_links pl
+      join wiki.pages p on p.id = pl.source_page_id and p.deleted_at is null
+      where pl.target_page_id = ${pageId}::uuid
+      order by p.title
+      limit ${lim}
+    `;
+    out.in = filas.map((r) => ({
+      page_id: r.source_page_id,
+      title: r.source_title,
+      target_key: r.target_key,
+    }));
+  }
+
+  return out;
+}
+
+export async function graphNeighbors(pageId, { depth = 1, direction = 'both', limit = 50 } = {}) {
+  const d = Math.min(Math.max(Number(depth) || 1, 1), 4);
+  const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const filas = await q(getPrisma())`
+    select * from wiki.graph_neighbors(${pageId}::uuid, ${d}, ${direction})
+    limit ${lim}
+  `;
+  return filas.map((r) => ({
+    page_id: r.page_id,
+    title: r.title,
+    depth: Number(r.depth),
+    via: r.via,
+  }));
+}
+
+export async function graphShortestPath(fromId, toId, { maxDepth = 6 } = {}) {
+  const max = Math.min(Math.max(Number(maxDepth) || 6, 1), 6);
+  const [row] = await q(getPrisma())`
+    select wiki.graph_shortest_path(${fromId}::uuid, ${toId}::uuid, ${max}, true) as path
+  `;
+  const path = row?.path || null;
+  if (!path || !path.length) return null;
+  const pages = await q(getPrisma())`
+    select id, title from wiki.pages where id in (${Prisma.join(path)})
+  `;
+  const map = new Map(pages.map((p) => [p.id, p.title]));
+  return path.map((id) => ({ page_id: id, title: map.get(id) || id }));
+}
+
+export async function graphRelated(pageId, { limit = 10 } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 10, 1), 50);
+  const filas = await q(getPrisma())`
+    select * from wiki.graph_related(${pageId}::uuid, ${lim})
+  `;
+  return filas.map((r) => ({
+    page_id: r.page_id,
+    title: r.title,
+    score: Number(r.score),
+  }));
+}
+
+export async function enlacesRotos({ limit = 50, under = null } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  let underIds = null;
+  if (under) {
+    underIds = await idsSubarbol(under);
+    if (!underIds.length) return [];
+  }
+  const filas = underIds
+    ? await q(getPrisma())`
+        select pl.target_key, count(*)::int as n,
+               array_agg(distinct p.title order by p.title) as from_titles
+        from wiki.page_links pl
+        join wiki.pages p on p.id = pl.source_page_id and p.deleted_at is null
+        where pl.target_page_id is null and pl.source_page_id in (${Prisma.join(underIds)})
+        group by pl.target_key
+        order by n desc, pl.target_key
+        limit ${lim}
+      `
+    : await q(getPrisma())`
+        select pl.target_key, count(*)::int as n,
+               array_agg(distinct p.title order by p.title) as from_titles
+        from wiki.page_links pl
+        join wiki.pages p on p.id = pl.source_page_id and p.deleted_at is null
+        where pl.target_page_id is null
+        group by pl.target_key
+        order by n desc, pl.target_key
+        limit ${lim}
+      `;
+  return filas.map((r) => ({
+    target_key: r.target_key,
+    count: Number(r.n),
+    from: (r.from_titles || []).slice(0, 8),
+  }));
+}
+
+export async function paginasHuerfanas({ limit = 50, includeFiles = false } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  const filas = await q(getPrisma())`
+    select p.id, p.title, p.kind
+    from wiki.pages p
+    where p.deleted_at is null
+      and p.parent_id is not null
+      and (${includeFiles} or p.kind = 'page')
+      and not exists (
+        select 1 from wiki.page_links l where l.target_page_id = p.id
+      )
+      and not exists (
+        select 1 from wiki.pages c where c.parent_id = p.id and c.deleted_at is null
+      )
+    order by p.title
+    limit ${lim}
+  `;
+  return filas.map((r) => ({ id: r.id, title: r.title, kind: r.kind }));
+}
+
+export async function obtenerVersionPorNumero(pageId, n) {
+  const [r] = await q(getPrisma())`
+    select * from wiki.page_versions
+    where page_id = ${pageId}::uuid and version_number = ${Number(n)}
+    limit 1
+  `;
+  return r ? filaVersion(r) : null;
+}
+
+export async function softDeleteCascade(rootId) {
+  return begin(async (tx) => {
+    const filas = await q(tx)`
+      with recursive t as (
+        select id, 0 as depth from wiki.pages where id = ${rootId}::uuid and deleted_at is null
+        union all
+        select p.id, t.depth + 1 from wiki.pages p
+        join t on p.parent_id = t.id where p.deleted_at is null
+      )
+      select id, depth from t order by depth desc
+    `;
+    if (!filas.length) return { ok: false, count: 0, ids: [] };
+    const ids = filas.map((r) => r.id);
+    for (const id of ids) {
+      await q(tx)`
+        update wiki.pages set deleted_at = now(), updated_at = now()
+        where id = ${id}::uuid and deleted_at is null
+      `;
+      await q(tx)`update wiki.page_links set target_page_id = null where target_page_id = ${id}::uuid`;
+      await q(tx)`delete from wiki.page_aliases where page_id = ${id}::uuid`;
+    }
+    return { ok: true, count: ids.length, ids };
+  });
+}
+
+export async function purgarPagina(pageId) {
+  const [row] = await q(getPrisma())`
+    select wiki.mcp_purge(${pageId}::uuid) as ok
+  `;
+  return Boolean(row?.ok);
+}
+
+export async function listarArchivos({ under = null, mime = null, limit = 50 } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 50, 1), 200);
+  let underIds = null;
+  if (under) {
+    underIds = await idsSubarbol(under);
+    if (!underIds.length) return [];
+  }
+  const filas = underIds
+    ? await q(getPrisma())`
+        select ${PAGE_COLS_P}, a.mime_type, a.size_bytes, a.original_name
+        from wiki.pages p
+        left join wiki.assets a on a.id = p.asset_id
+        where p.deleted_at is null and p.kind = 'file'
+          and p.id in (${Prisma.join(underIds)})
+          and (${mime}::text is null or a.mime_type = ${mime})
+        order by p.title limit ${lim}
+      `
+    : await q(getPrisma())`
+        select ${PAGE_COLS_P}, a.mime_type, a.size_bytes, a.original_name
+        from wiki.pages p
+        left join wiki.assets a on a.id = p.asset_id
+        where p.deleted_at is null and p.kind = 'file'
+          and (${mime}::text is null or a.mime_type = ${mime})
+        order by p.title limit ${lim}
+      `;
+  return filas.map(filaArbol);
+}
+
+export async function listarAliasesDePagina(pageId = null) {
+  if (pageId) {
+    const rows = await q(getPrisma())`
+      select a.alias_key, a.page_id, p.title
+      from wiki.page_aliases a
+      join wiki.pages p on p.id = a.page_id
+      where a.page_id = ${pageId}::uuid and p.deleted_at is null
+      order by a.alias_key
+    `;
+    return rows.map((r) => ({ alias_key: r.alias_key, page_id: r.page_id, title: r.title }));
+  }
+  const rows = await q(getPrisma())`
+    select a.alias_key, a.page_id, p.title
+    from wiki.page_aliases a
+    join wiki.pages p on p.id = a.page_id
+    where p.deleted_at is null
+    order by a.alias_key
+    limit 500
+  `;
+  return rows.map((r) => ({ alias_key: r.alias_key, page_id: r.page_id, title: r.title }));
+}
+
+export async function quitarAlias(aliasKey) {
+  const key = normalizeTitle(aliasKey);
+  const [row] = await q(getPrisma())`
+    delete from wiki.page_aliases where alias_key = ${key} returning alias_key, page_id
+  `;
+  if (row) {
+    await q(getPrisma())`
+      update wiki.page_links set target_page_id = null
+      where target_key = ${key} and target_page_id = ${row.page_id}::uuid
+    `;
+  }
+  return Boolean(row);
+}
+
+export async function listarTags({ limit = 100 } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 100, 1), 500);
+  const filas = await q(getPrisma())`
+    select tag, count(*)::int as n from (
+      select jsonb_array_elements_text(coalesce(metadata->'tags', '[]'::jsonb)) as tag
+      from wiki.pages where deleted_at is null
+    ) t
+    group by tag order by n desc, tag
+    limit ${lim}
+  `;
+  return filas.map((r) => ({ tag: r.tag, count: Number(r.n) }));
+}
+
+export async function versionesRecientes({ limit = 20, since = null, author = null } = {}) {
+  const lim = Math.min(Math.max(Number(limit) || 20, 1), 100);
+  const filas = await q(getPrisma())`
+    select v.id, v.page_id, v.version_number, v.title, v.author, v.message, v.source, v.created_at,
+           p.title as page_title
+    from wiki.page_versions v
+    join wiki.pages p on p.id = v.page_id
+    where p.deleted_at is null
+      and (${since}::timestamptz is null or v.created_at >= ${since}::timestamptz)
+      and (${author}::text is null or v.author = ${author})
+    order by v.created_at desc
+    limit ${lim}
+  `;
+  return filas.map((r) => ({
+    id: r.id,
+    page_id: r.page_id,
+    page_title: r.page_title,
+    version_number: Number(r.version_number),
+    title: r.title,
+    author: r.author,
+    message: r.message,
+    source: r.source,
+    created_at: iso(r.created_at),
+  }));
+}
+
+export async function statsWiki() {
+  const [c] = await q(getPrisma())`
+    select
+      (select count(*)::int from wiki.pages where deleted_at is null and kind = 'page') as pages,
+      (select count(*)::int from wiki.pages where deleted_at is null and kind = 'file') as files,
+      (select count(*)::int from wiki.pages where deleted_at is not null) as trash,
+      (select count(*)::int from wiki.page_links where target_page_id is null) as broken_links,
+      (select count(*)::int from wiki.page_aliases) as aliases,
+      (select count(*)::int from wiki.assets) as assets
+  `;
+  const hubs = await q(getPrisma())`
+    select p.id, p.title, count(*)::int as backlinks
+    from wiki.page_links l
+    join wiki.pages p on p.id = l.target_page_id and p.deleted_at is null
+    group by p.id, p.title
+    order by backlinks desc, p.title
+    limit 10
+  `;
+  return {
+    pages: Number(c?.pages || 0),
+    files: Number(c?.files || 0),
+    trash: Number(c?.trash || 0),
+    broken_links: Number(c?.broken_links || 0),
+    aliases: Number(c?.aliases || 0),
+    assets: Number(c?.assets || 0),
+    hubs: hubs.map((h) => ({ id: h.id, title: h.title, backlinks: Number(h.backlinks) })),
+  };
+}
+
+export async function siguientePosicionFraccionaria(parentId, { position = 'end', after = null, before = null } = {}, db) {
+  const c = dbOf(db);
+  if (position === 'start') {
+    const [first] = await q(c)`
+      select position from wiki.pages
+      where parent_id is not distinct from ${parentId}::uuid and deleted_at is null
+      order by position asc limit 1
+    `;
+    if (!first) return 'a0';
+    return positionBetween(null, first.position);
+  }
+  if (after) {
+    const [a] = await q(c)`
+      select position from wiki.pages where id = ${after}::uuid and deleted_at is null
+    `;
+    const [b] = await q(c)`
+      select position from wiki.pages
+      where parent_id is not distinct from ${parentId}::uuid and deleted_at is null
+        and position > ${a?.position || ''}
+      order by position asc limit 1
+    `;
+    return positionBetween(a?.position || null, b?.position || null);
+  }
+  if (before) {
+    const [b] = await q(c)`
+      select position from wiki.pages where id = ${before}::uuid and deleted_at is null
+    `;
+    const [a] = await q(c)`
+      select position from wiki.pages
+      where parent_id is not distinct from ${parentId}::uuid and deleted_at is null
+        and position < ${b?.position || 'zzzz'}
+      order by position desc limit 1
+    `;
+    return positionBetween(a?.position || null, b?.position || null);
+  }
+  return siguientePosicion(parentId, c);
+}
