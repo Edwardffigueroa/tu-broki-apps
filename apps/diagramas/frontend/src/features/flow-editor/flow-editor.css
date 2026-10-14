@@ -516,11 +516,17 @@
   opacity: 1;
 }
 
-/* Carriles detrás de nodos/flechas */
+/* Carriles detrás de nodos/flechas.
+   Sin z-index en edgelabel-renderer, las etiquetas quedan en la capa auto
+   (debajo de edges/nodes y tapadas por el ViewportPortal de carriles). */
 .fs-lanes-bg {
   z-index: 0;
 }
 .fs-shell .react-flow__edges {
+  z-index: 3;
+}
+/* Mismo nivel que edges (DOM: label después del SVG → sobre la línea; nodos encima). */
+.fs-shell .react-flow__edgelabel-renderer {
   z-index: 3;
 }
 .fs-shell .react-flow__nodes {
